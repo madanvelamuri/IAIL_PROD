@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import API from "../services/api";
 import StarBackground from "../components/StarBackground";
 import { motion } from "framer-motion";
+import { Link } from "react-router-dom";
 
 export default function Login() {
   const [form, setForm] = useState({ email: "", password: "" });
@@ -108,7 +109,7 @@ export default function Login() {
             transition duration-300"
           />
 
-          {/* Password with Eye Toggle */}
+          {/* Password */}
           <div className="relative">
             <motion.input
               whileFocus={{ scale: 1.02 }}
@@ -176,7 +177,7 @@ export default function Login() {
             </motion.div>
           )}
 
-          {/* Random Meme After 3 Attempts */}
+          {/* Meme */}
           {attempts >= 1 && !success && (
             <motion.div
               key={attempts}
@@ -190,9 +191,23 @@ export default function Login() {
 
         </form>
 
-        <p className="text-center text-gray-500 text-sm mt-12 tracking-wide">
+        {/* Register Link */}
+        <div className="text-center mt-8">
+          <span className="text-gray-400 text-sm">
+            Don't have an account?{" "}
+          </span>
+          <Link
+            to="/register"
+            className="text-cyan-400 hover:text-cyan-300 font-semibold text-sm transition duration-300"
+          >
+            Register here
+          </Link>
+        </div>
+
+        <p className="text-center text-gray-500 text-sm mt-6 tracking-wide">
           Mistake Tracking & Analysis System
         </p>
+
       </motion.div>
     </div>
   );
