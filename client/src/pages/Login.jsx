@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import API from "../services/api";
 import StarBackground from "../components/StarBackground";
 import { motion } from "framer-motion";
@@ -12,6 +12,18 @@ export default function Login() {
   const [success, setSuccess] = useState(false);
   const [attempts, setAttempts] = useState(0);
   const [showPassword, setShowPassword] = useState(false);
+
+  /* =========================
+     SESSION EXPIRED MESSAGE
+  ========================= */
+  useEffect(() => {
+    const expired = localStorage.getItem("sessionExpired");
+
+    if (expired) {
+      setError("Session expired. Please login again.");
+      localStorage.removeItem("sessionExpired");
+    }
+  }, []);
 
   const memeQuotes = [
     "😎 It’s not the password… it’s the confidence.",
@@ -87,6 +99,7 @@ export default function Login() {
         ${shake ? "animate-shake border-red-500" : ""}
         ${success ? "border-green-400 shadow-green-400/40" : ""}`}
       >
+
         <h2 className="text-4xl font-extrabold text-center mb-12 tracking-wide bg-gradient-to-r from-cyan-400 via-teal-300 to-emerald-400 bg-clip-text text-transparent">
           Welcome To APA
         </h2>
