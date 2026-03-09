@@ -415,7 +415,7 @@ export default function Dashboard() {
                     </button>
                   ) : (
                     <span className="text-gray-400">
-                      No Image
+                      👁
                     </span>
                   )}
 
