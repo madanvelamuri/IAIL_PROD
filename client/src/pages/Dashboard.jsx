@@ -28,7 +28,7 @@ ChartJS.register(
 );
 
 /* CHANGE THIS IF YOUR BACKEND PORT IS DIFFERENT */
-const BACKEND_URL = "http://localhost:5000";
+const BACKEND_URL = "https://iailgo-production.up.railway.app";
 
 export default function Dashboard() {
 
