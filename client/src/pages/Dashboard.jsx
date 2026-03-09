@@ -8,8 +8,7 @@ import {
   Download, 
   Trash2, 
   LayoutDashboard, 
-  Filter,
-  Eye
+  Filter
 } from "lucide-react";
 
 import {
@@ -36,6 +35,7 @@ ChartJS.register(
 );
 
 export default function Dashboard() {
+
   const [mistakes, setMistakes] = useState([]);
   const [filteredData, setFilteredData] = useState([]);
   const [viewImage, setViewImage] = useState(null);
@@ -108,6 +108,7 @@ export default function Dashboard() {
   };
 
   const handleExportCSV = () => {
+
     if (filteredData.length === 0) {
       alert("No data to export");
       return;
@@ -118,7 +119,7 @@ export default function Dashboard() {
       "Employee Name",
       "Mistake Type",
       "Description",
-      "Created Date",
+      "Created Date"
     ];
 
     const rows = filteredData.map((m) => [
@@ -126,28 +127,25 @@ export default function Dashboard() {
       `"${m.employee_name}"`,
       `"${m.mistake_type}"`,
       `"${m.description}"`,
-      `"${new Date(m.created_at).toISOString().split("T")[0]}"`,
+      `"${new Date(m.created_at).toISOString().split("T")[0]}"`
     ]);
 
-    const csvContent = [headers, ...rows].map((e) => e.join(",")).join("\n");
+    const csvContent = [headers, ...rows]
+      .map((e) => e.join(","))
+      .join("\n");
 
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const blob = new Blob([csvContent], {
+      type: "text/csv;charset=utf-8;"
+    });
 
     const link = document.createElement("a");
-
     const url = URL.createObjectURL(blob);
 
-    link.setAttribute("href", url);
-
-    link.setAttribute(
-      "download",
-      `mistakes_report_${new Date().toISOString().split("T")[0]}.csv`
-    );
+    link.href = url;
+    link.download = `mistakes_report_${new Date().toISOString().split("T")[0]}.csv`;
 
     document.body.appendChild(link);
-
     link.click();
-
     document.body.removeChild(link);
   };
 
@@ -160,7 +158,6 @@ export default function Dashboard() {
   ).length;
 
   const typeFrequency = {};
-
   filteredData.forEach((m) => {
     typeFrequency[m.mistake_type] =
       (typeFrequency[m.mistake_type] || 0) + 1;
@@ -174,7 +171,6 @@ export default function Dashboard() {
       : "-";
 
   const employeeFrequency = {};
-
   filteredData.forEach((m) => {
     employeeFrequency[m.employee_name] =
       (employeeFrequency[m.employee_name] || 0) + 1;
@@ -188,7 +184,6 @@ export default function Dashboard() {
       : "-";
 
   const monthly = {};
-
   filteredData.forEach((m) => {
     const month = new Date(m.created_at).toLocaleString("default", {
       month: "short",
@@ -223,179 +218,136 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] p-6 lg:p-10 space-y-8 font-sans text-slate-900">
 
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <LayoutDashboard className="w-6 h-6 text-blue-600" />
-            <h1 className="text-3xl font-bold tracking-tight text-slate-800">
-              Analytics Dashboard
-            </h1>
-          </div>
-          <p className="text-slate-500 font-medium">
-            Mistake tracking insights & performance overview
-          </p>
+    <div className="min-h-screen bg-[#f8fafc] p-6 lg:p-10 space-y-8">
+
+      {/* Header */}
+      <div className="flex justify-between items-center">
+
+        <div className="flex items-center gap-2">
+          <LayoutDashboard className="text-blue-600"/>
+          <h1 className="text-2xl font-bold">Analytics Dashboard</h1>
         </div>
 
         <button
           onClick={handleExportCSV}
-          className="bg-emerald-600 text-white px-5 py-2 rounded-xl flex items-center"
+          className="bg-emerald-600 text-white px-4 py-2 rounded-lg flex items-center"
         >
-          <Download className="w-4 h-4 mr-2" />
+          <Download className="w-4 h-4 mr-2"/>
           Export CSV
         </button>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-
-        <KpiCard title="Total Mistakes" value={totalMistakes} />
-
-        <KpiCard title="This Month" value={thisMonthCount} />
-
-        <KpiText title="Most of Mistakes Done in" value={topMistake} />
-
-        <KpiText title="Mostly Mistake Done By" value={topEmployee} />
 
       </div>
 
-      <div className="bg-white p-5 rounded-2xl shadow-sm border flex flex-wrap items-center gap-4">
+      {/* KPI */}
+      <div className="grid grid-cols-4 gap-6">
+
+        <KpiCard title="Total Mistakes" value={totalMistakes}/>
+        <KpiCard title="This Month" value={thisMonthCount}/>
+        <KpiText title="Most Mistake Type" value={topMistake}/>
+        <KpiText title="Top Employee" value={topEmployee}/>
+
+      </div>
+
+      {/* Filters */}
+      <div className="bg-white p-4 rounded-xl shadow flex flex-wrap gap-3">
 
         <Input
           type="date"
           value={filters.from}
-          onChange={(e) =>
-            setFilters({ ...filters, from: e.target.value })
-          }
+          onChange={(e)=>setFilters({...filters,from:e.target.value})}
         />
 
         <Input
           type="date"
           value={filters.to}
-          onChange={(e) =>
-            setFilters({ ...filters, to: e.target.value })
-          }
+          onChange={(e)=>setFilters({...filters,to:e.target.value})}
         />
 
         <Input
           placeholder="Employee"
           value={filters.employee}
-          onChange={(e) =>
-            setFilters({ ...filters, employee: e.target.value })
-          }
+          onChange={(e)=>setFilters({...filters,employee:e.target.value})}
         />
 
         <Input
           placeholder="Mistake Type"
           value={filters.type}
-          onChange={(e) =>
-            setFilters({ ...filters, type: e.target.value })
-          }
+          onChange={(e)=>setFilters({...filters,type:e.target.value})}
         />
 
-        <button
-          onClick={handleSearch}
-          className="bg-blue-600 text-white px-4 py-2 rounded-xl flex items-center"
-        >
-          <Search className="w-4 h-4 mr-2" />
-          Search
+        <button onClick={handleSearch} className="bg-blue-600 text-white px-4 py-2 rounded">
+          <Search className="w-4 h-4 inline mr-1"/> Search
         </button>
 
-        <button
-          onClick={handleReset}
-          className="bg-gray-200 px-4 py-2 rounded-xl flex items-center"
-        >
-          <RotateCcw className="w-4 h-4 mr-2" />
-          Reset
+        <button onClick={handleReset} className="bg-gray-200 px-4 py-2 rounded">
+          <RotateCcw className="w-4 h-4 inline mr-1"/> Reset
         </button>
+
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      {/* Charts */}
+      <div className="grid grid-cols-2 gap-6">
 
         <ChartCard title="Monthly Trend">
-          <Line data={trendData} />
+          <Line data={trendData}/>
         </ChartCard>
 
-        <ChartCard title="Mistake Type Distribution">
-          <Bar data={barData} />
+        <ChartCard title="Mistake Distribution">
+          <Bar data={barData}/>
         </ChartCard>
 
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
+      {/* Table */}
+      <div className="bg-white rounded-xl shadow overflow-hidden">
 
         <table className="w-full">
 
-          <thead className="bg-slate-50 text-xs uppercase">
-
+          <thead className="bg-gray-100 text-xs uppercase">
             <tr>
-
-              <th className="px-6 py-4">Claim</th>
-
-              <th className="px-6 py-4">Employee</th>
-
-              <th className="px-6 py-4">Type</th>
-
-              <th className="px-6 py-4">Description</th>
-
-              <th className="px-6 py-4">Date</th>
-
-              <th className="px-6 py-4 text-center">Action</th>
-
+              <th className="p-4">Claim</th>
+              <th>Employee</th>
+              <th>Type</th>
+              <th>Description</th>
+              <th>Date</th>
+              <th>Action</th>
             </tr>
-
           </thead>
 
           <tbody>
 
-            {filteredData.map((m) => (
-
+            {filteredData.map((m)=>(
               <tr key={m.id}>
 
-                <td className="px-6 py-4 text-blue-600 font-semibold">
-                  {m.claim_id}
-                </td>
+                {/* CLICK CLAIM TO VIEW SCREENSHOT */}
+                <td className="p-4 text-blue-600 font-semibold">
 
-                <td className="px-6 py-4">
-                  {m.employee_name}
-                </td>
-
-                <td className="px-6 py-4">
-                  {m.mistake_type}
-                </td>
-
-                <td className="px-6 py-4">
-                  {m.description}
-                </td>
-
-                <td className="px-6 py-4">
-                  {new Date(m.created_at).toLocaleDateString()}
-                </td>
-
-                <td className="px-6 py-4 text-center">
-
-                  <div className="flex justify-center gap-3">
-
-                    {m.screenshot_url && (
-                      <button
-                        onClick={() => setViewImage(m.screenshot_url)}
-                      >
-                        <Eye className="w-5 h-5 text-blue-600" />
-                      </button>
-                    )}
-
+                  {m.screenshot_url ? (
                     <button
-                      onClick={() => handleDelete(m.id)}
+                      onClick={()=>setViewImage(m.screenshot_url)}
+                      className="hover:underline"
                     >
-                      <Trash2 className="w-5 h-5 text-red-600" />
+                      {m.claim_id}
                     </button>
+                  ) : (
+                    m.claim_id
+                  )}
 
-                  </div>
+                </td>
 
+                <td>{m.employee_name}</td>
+                <td>{m.mistake_type}</td>
+                <td>{m.description}</td>
+                <td>{new Date(m.created_at).toLocaleDateString()}</td>
+
+                <td>
+                  <button onClick={()=>handleDelete(m.id)}>
+                    <Trash2 className="text-red-600 w-5 h-5"/>
+                  </button>
                 </td>
 
               </tr>
-
             ))}
 
           </tbody>
@@ -404,13 +356,14 @@ export default function Dashboard() {
 
       </div>
 
+      {/* Screenshot Modal */}
       {viewImage && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center">
 
-          <div className="bg-white p-4 rounded-xl max-w-4xl">
+          <div className="bg-white p-4 rounded-lg">
 
             <button
-              onClick={() => setViewImage(null)}
+              onClick={()=>setViewImage(null)}
               className="float-right text-xl"
             >
               ✕
@@ -431,18 +384,18 @@ export default function Dashboard() {
   );
 }
 
-const KpiCard = ({ title, value }) => (
-  <div className="bg-white p-6 rounded-2xl shadow">
-    <p className="text-xs text-gray-400">{title}</p>
+const KpiCard = ({title,value}) => (
+  <div className="bg-white p-6 rounded-xl shadow">
+    <p className="text-gray-400 text-sm">{title}</p>
     <h2 className="text-3xl font-bold">
-      <CountUp end={value} />
+      <CountUp end={value}/>
     </h2>
   </div>
 );
 
-const KpiText = ({ title, value }) => (
-  <div className="bg-white p-6 rounded-2xl shadow">
-    <p className="text-xs text-gray-400">{title}</p>
+const KpiText = ({title,value}) => (
+  <div className="bg-white p-6 rounded-xl shadow">
+    <p className="text-gray-400 text-sm">{title}</p>
     <h2 className="text-lg font-bold">{value}</h2>
   </div>
 );
@@ -450,12 +403,12 @@ const KpiText = ({ title, value }) => (
 const Input = (props) => (
   <input
     {...props}
-    className="border px-3 py-2 rounded-xl"
+    className="border px-3 py-2 rounded-lg"
   />
 );
 
-const ChartCard = ({ title, children }) => (
-  <div className="bg-white p-6 rounded-2xl shadow">
+const ChartCard = ({title,children}) => (
+  <div className="bg-white p-6 rounded-xl shadow">
     <h3 className="mb-4 font-bold">{title}</h3>
     {children}
   </div>
