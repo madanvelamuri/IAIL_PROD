@@ -46,7 +46,8 @@ CREATE TABLE IF NOT EXISTS mistakes (
   employee_name TEXT NOT NULL,
   mistake_type TEXT NOT NULL,
   description TEXT NOT NULL,
-  screenshot TEXT,
+  screenshot_url TEXT,
+  status VARCHAR(20) DEFAULT 'Pending',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 `;
