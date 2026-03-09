@@ -2,13 +2,12 @@ import React, { useEffect, useState } from "react";
 import API from "../services/api";
 import CountUp from "react-countup";
 import { Bar, Line } from "react-chartjs-2";
-import { 
-  Search, 
-  RotateCcw, 
-  Download, 
-  Trash2, 
-  LayoutDashboard, 
-  Filter,
+import {
+  Search,
+  RotateCcw,
+  Download,
+  Trash2,
+  LayoutDashboard,
   Eye
 } from "lucide-react";
 
@@ -36,6 +35,7 @@ ChartJS.register(
 );
 
 export default function Dashboard() {
+
   const [mistakes, setMistakes] = useState([]);
   const [filteredData, setFilteredData] = useState([]);
   const [viewImage, setViewImage] = useState(null);
@@ -44,7 +44,7 @@ export default function Dashboard() {
     from: "",
     to: "",
     employee: "",
-    type: "",
+    type: ""
   });
 
   useEffect(() => {
@@ -62,29 +62,34 @@ export default function Dashboard() {
   };
 
   const handleSearch = () => {
+
     let data = [...mistakes];
 
     if (filters.employee) {
-      data = data.filter((m) =>
-        m.employee_name.toLowerCase().includes(filters.employee.toLowerCase())
+      data = data.filter(m =>
+        m.employee_name
+          .toLowerCase()
+          .includes(filters.employee.toLowerCase())
       );
     }
 
     if (filters.type) {
-      data = data.filter((m) =>
-        m.mistake_type.toLowerCase().includes(filters.type.toLowerCase())
+      data = data.filter(m =>
+        m.mistake_type
+          .toLowerCase()
+          .includes(filters.type.toLowerCase())
       );
     }
 
     if (filters.from) {
       data = data.filter(
-        (m) => new Date(m.created_at) >= new Date(filters.from)
+        m => new Date(m.created_at) >= new Date(filters.from)
       );
     }
 
     if (filters.to) {
       data = data.filter(
-        (m) => new Date(m.created_at) <= new Date(filters.to)
+        m => new Date(m.created_at) <= new Date(filters.to)
       );
     }
 
@@ -92,11 +97,18 @@ export default function Dashboard() {
   };
 
   const handleReset = () => {
-    setFilters({ from: "", to: "", employee: "", type: "" });
+    setFilters({
+      from: "",
+      to: "",
+      employee: "",
+      type: ""
+    });
+
     setFilteredData(mistakes);
   };
 
   const handleDelete = async (id) => {
+
     if (!window.confirm("Delete this record?")) return;
 
     try {
@@ -108,6 +120,7 @@ export default function Dashboard() {
   };
 
   const handleExportCSV = () => {
+
     if (filteredData.length === 0) {
       alert("No data to export");
       return;
@@ -118,20 +131,27 @@ export default function Dashboard() {
       "Employee Name",
       "Mistake Type",
       "Description",
-      "Created Date",
+      "Created Date"
     ];
 
-    const rows = filteredData.map((m) => [
+    const rows = filteredData.map(m => [
       `="${m.claim_id}"`,
       `"${m.employee_name}"`,
       `"${m.mistake_type}"`,
       `"${m.description}"`,
-      `"${new Date(m.created_at).toISOString().split("T")[0]}"`,
+      `"${new Date(m.created_at)
+        .toISOString()
+        .split("T")[0]}"`
     ]);
 
-    const csvContent = [headers, ...rows].map((e) => e.join(",")).join("\n");
+    const csvContent = [headers, ...rows]
+      .map(e => e.join(","))
+      .join("\n");
 
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const blob = new Blob(
+      [csvContent],
+      { type: "text/csv;charset=utf-8;" }
+    );
 
     const link = document.createElement("a");
 
@@ -141,7 +161,9 @@ export default function Dashboard() {
 
     link.setAttribute(
       "download",
-      `mistakes_report_${new Date().toISOString().split("T")[0]}.csv`
+      `mistakes_report_${
+        new Date().toISOString().split("T")[0]
+      }.csv`
     );
 
     document.body.appendChild(link);
@@ -156,12 +178,12 @@ export default function Dashboard() {
   const thisMonth = new Date().getMonth();
 
   const thisMonthCount = filteredData.filter(
-    (m) => new Date(m.created_at).getMonth() === thisMonth
+    m => new Date(m.created_at).getMonth() === thisMonth
   ).length;
 
   const typeFrequency = {};
 
-  filteredData.forEach((m) => {
+  filteredData.forEach(m => {
     typeFrequency[m.mistake_type] =
       (typeFrequency[m.mistake_type] || 0) + 1;
   });
@@ -175,7 +197,7 @@ export default function Dashboard() {
 
   const employeeFrequency = {};
 
-  filteredData.forEach((m) => {
+  filteredData.forEach(m => {
     employeeFrequency[m.employee_name] =
       (employeeFrequency[m.employee_name] || 0) + 1;
   });
@@ -189,10 +211,10 @@ export default function Dashboard() {
 
   const monthly = {};
 
-  filteredData.forEach((m) => {
-    const month = new Date(m.created_at).toLocaleString("default", {
-      month: "short",
-    });
+  filteredData.forEach(m => {
+
+    const month = new Date(m.created_at)
+      .toLocaleString("default", { month: "short" });
 
     monthly[month] = (monthly[month] || 0) + 1;
   });
@@ -206,9 +228,9 @@ export default function Dashboard() {
         borderColor: "#3b82f6",
         backgroundColor: "rgba(59,130,246,0.2)",
         tension: 0.4,
-        fill: true,
-      },
-    ],
+        fill: true
+      }
+    ]
   };
 
   const barData = {
@@ -217,25 +239,33 @@ export default function Dashboard() {
       {
         label: "Mistake Count",
         data: Object.values(typeFrequency),
-        backgroundColor: "#10b981",
-      },
-    ],
+        backgroundColor: "#10b981"
+      }
+    ]
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] p-6 lg:p-10 space-y-8 font-sans text-slate-900">
 
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="min-h-screen bg-[#f8fafc] p-6 lg:p-10 space-y-8">
+
+      <div className="flex flex-col md:flex-row md:items-center justify-between">
+
         <div>
+
           <div className="flex items-center gap-2 mb-1">
+
             <LayoutDashboard className="w-6 h-6 text-blue-600" />
-            <h1 className="text-3xl font-bold tracking-tight text-slate-800">
+
+            <h1 className="text-3xl font-bold">
               Analytics Dashboard
             </h1>
+
           </div>
-          <p className="text-slate-500 font-medium">
-            Mistake tracking insights & performance overview
+
+          <p className="text-slate-500">
+            Mistake tracking insights
           </p>
+
         </div>
 
         <button
@@ -245,6 +275,7 @@ export default function Dashboard() {
           <Download className="w-4 h-4 mr-2" />
           Export CSV
         </button>
+
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -253,18 +284,18 @@ export default function Dashboard() {
 
         <KpiCard title="This Month" value={thisMonthCount} />
 
-        <KpiText title="Most of Mistakes Done in" value={topMistake} />
+        <KpiText title="Most Mistake Type" value={topMistake} />
 
-        <KpiText title="Mostly Mistake Done By" value={topEmployee} />
+        <KpiText title="Top Employee" value={topEmployee} />
 
       </div>
 
-      <div className="bg-white p-5 rounded-2xl shadow-sm border flex flex-wrap items-center gap-4">
+      <div className="bg-white p-5 rounded-2xl shadow-sm border flex flex-wrap gap-4">
 
         <Input
           type="date"
           value={filters.from}
-          onChange={(e) =>
+          onChange={e =>
             setFilters({ ...filters, from: e.target.value })
           }
         />
@@ -272,7 +303,7 @@ export default function Dashboard() {
         <Input
           type="date"
           value={filters.to}
-          onChange={(e) =>
+          onChange={e =>
             setFilters({ ...filters, to: e.target.value })
           }
         />
@@ -280,15 +311,18 @@ export default function Dashboard() {
         <Input
           placeholder="Employee"
           value={filters.employee}
-          onChange={(e) =>
-            setFilters({ ...filters, employee: e.target.value })
+          onChange={e =>
+            setFilters({
+              ...filters,
+              employee: e.target.value
+            })
           }
         />
 
         <Input
           placeholder="Mistake Type"
           value={filters.type}
-          onChange={(e) =>
+          onChange={e =>
             setFilters({ ...filters, type: e.target.value })
           }
         />
@@ -308,6 +342,7 @@ export default function Dashboard() {
           <RotateCcw className="w-4 h-4 mr-2" />
           Reset
         </button>
+
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -329,26 +364,20 @@ export default function Dashboard() {
           <thead className="bg-slate-50 text-xs uppercase">
 
             <tr>
-
               <th className="px-6 py-4">Claim</th>
-
               <th className="px-6 py-4">Employee</th>
-
               <th className="px-6 py-4">Type</th>
-
               <th className="px-6 py-4">Description</th>
-
               <th className="px-6 py-4">Date</th>
-
+              <th className="px-6 py-4">Screenshot</th>
               <th className="px-6 py-4 text-center">Action</th>
-
             </tr>
 
           </thead>
 
           <tbody>
 
-            {filteredData.map((m) => (
+            {filteredData.map(m => (
 
               <tr key={m.id}>
 
@@ -372,25 +401,33 @@ export default function Dashboard() {
                   {new Date(m.created_at).toLocaleDateString()}
                 </td>
 
+                <td className="px-6 py-4">
+
+                  {m.screenshot_url ? (
+                    <button
+                      onClick={() =>
+                        setViewImage(m.screenshot_url)
+                      }
+                      className="flex items-center gap-1 text-blue-600"
+                    >
+                      <Eye className="w-5 h-5" />
+                      View
+                    </button>
+                  ) : (
+                    <span className="text-gray-400">
+                      No Image
+                    </span>
+                  )}
+
+                </td>
+
                 <td className="px-6 py-4 text-center">
 
-                  <div className="flex justify-center gap-3">
-
-                    {m.screenshot_url && (
-                      <button
-                        onClick={() => setViewImage(m.screenshot_url)}
-                      >
-                        <Eye className="w-5 h-5 text-blue-600" />
-                      </button>
-                    )}
-
-                    <button
-                      onClick={() => handleDelete(m.id)}
-                    >
-                      <Trash2 className="w-5 h-5 text-red-600" />
-                    </button>
-
-                  </div>
+                  <button
+                    onClick={() => handleDelete(m.id)}
+                  >
+                    <Trash2 className="w-5 h-5 text-red-600" />
+                  </button>
 
                 </td>
 
@@ -405,15 +442,16 @@ export default function Dashboard() {
       </div>
 
       {viewImage && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
 
-          <div className="bg-white p-4 rounded-xl max-w-4xl">
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+
+          <div className="relative bg-white p-4 rounded-xl">
 
             <button
               onClick={() => setViewImage(null)}
-              className="float-right text-xl"
+              className="absolute top-2 right-3 text-2xl"
             >
-              ✕
+              ×
             </button>
 
             <img
@@ -425,6 +463,7 @@ export default function Dashboard() {
           </div>
 
         </div>
+
       )}
 
     </div>
@@ -447,7 +486,7 @@ const KpiText = ({ title, value }) => (
   </div>
 );
 
-const Input = (props) => (
+const Input = props => (
   <input
     {...props}
     className="border px-3 py-2 rounded-xl"
