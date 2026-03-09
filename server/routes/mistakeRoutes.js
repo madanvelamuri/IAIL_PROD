@@ -6,9 +6,7 @@ const authMiddleware = require("../middleware/auth");
 const path = require("path");
 const fs = require("fs");
 
-// =======================
-// ENSURE UPLOADS FOLDER EXISTS
-// =======================
+//  ENSURE UPLOADS FOLDER EXISTS //
 
 const uploadPath = path.join(__dirname, "../uploads");
 
@@ -16,9 +14,7 @@ if (!fs.existsSync(uploadPath)) {
   fs.mkdirSync(uploadPath);
 }
 
-// =======================
-// MULTER CONFIG
-// =======================
+// MULTER CONFIG // 
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -40,6 +36,7 @@ router.post(
   authMiddleware,
   upload.single("screenshot"),
   async (req, res) => {
+
     const { claim_id, employee_name, mistake_type, description } = req.body;
 
     if (!claim_id || !employee_name || !mistake_type || !description) {
@@ -51,6 +48,7 @@ router.post(
     const screenshot = req.file ? req.file.filename : null;
 
     try {
+
       await db.query(
         `INSERT INTO mistakes 
          (claim_id, employee_name, mistake_type, description, screenshot) 
@@ -68,6 +66,7 @@ router.post(
         message: "Insert failed",
       });
     }
+
   }
 );
 
@@ -76,19 +75,33 @@ router.post(
 // =======================
 
 router.get("/", authMiddleware, async (req, res) => {
+
   try {
+
     const result = await db.query(
       "SELECT * FROM mistakes ORDER BY id DESC"
     );
 
-    return res.json(result.rows);
+    // Add screenshot_url field for frontend preview
+    const data = result.rows.map((row) => ({
+      ...row,
+      screenshot_url: row.screenshot
+        ? `/uploads/${row.screenshot}`
+        : null
+    }));
+
+    return res.json(data);
 
   } catch (err) {
+
     console.error("FETCH ERROR:", err);
+
     return res.status(500).json({
       message: "Fetch failed",
     });
+
   }
+
 });
 
 // =======================
@@ -96,9 +109,11 @@ router.get("/", authMiddleware, async (req, res) => {
 // =======================
 
 router.delete("/:id", authMiddleware, async (req, res) => {
+
   const { id } = req.params;
 
   try {
+
     await db.query(
       "DELETE FROM mistakes WHERE id = $1",
       [id]
@@ -109,11 +124,15 @@ router.delete("/:id", authMiddleware, async (req, res) => {
     });
 
   } catch (err) {
+
     console.error("DELETE ERROR:", err);
+
     return res.status(500).json({
       message: "Delete failed",
     });
+
   }
+
 });
 
 module.exports = router;
