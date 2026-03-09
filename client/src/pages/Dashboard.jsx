@@ -97,7 +97,6 @@ type: ""
 });
 
 setFilteredData(mistakes);
-
 };
 
 const handleDelete = async (id) => {
@@ -202,7 +201,6 @@ month: "short"
 });
 
 monthly[month] = (monthly[month] || 0) + 1;
-
 });
 
 const trendData = {
@@ -243,12 +241,11 @@ return (
 
 <button
 onClick={handleExportCSV}
-className="bg-emerald-600 text-white px-5 py-2 rounded-xl flex items-center"
-
+className="bg-emerald-600 text-white px-5 py-2 rounded-xl flex items-center gap-2 transition shadow-md hover:shadow-lg active:scale-95 active:shadow-inner duration-150"
 >
-
-📥 <Download className="w-4 h-4 mr-2"/>
-Export CSV </button>
+📥 <Download className="w-4 h-4"/>
+Export CSV
+</button>
 
 </div>
 
@@ -261,7 +258,7 @@ Export CSV </button>
 
 </div>
 
-<div className="bg-white p-5 rounded-xl flex gap-4">
+<div className="bg-white p-5 rounded-xl shadow-md flex gap-4">
 
 <Input type="date" value={filters.from}
 onChange={e => setFilters({ ...filters, from: e.target.value })}/>
@@ -279,19 +276,17 @@ onChange={e => setFilters({ ...filters, type: e.target.value })}/>
 
 <button
 onClick={handleSearch}
-className="bg-blue-600 text-white px-4 py-2 rounded-xl flex items-center"
-
+className="bg-blue-600 text-white px-4 py-2 rounded-xl flex items-center gap-2 transition shadow-md hover:shadow-lg active:scale-95 active:shadow-inner duration-150"
 >
-
-🔍 <Search className="w-4 h-4 mr-2"/> Search </button>
+🔍 <Search className="w-4 h-4"/> Search
+</button>
 
 <button
 onClick={handleReset}
-className="bg-gray-200 px-4 py-2 rounded-xl flex items-center"
-
+className="bg-gray-200 px-4 py-2 rounded-xl flex items-center gap-2 transition shadow-md hover:shadow-lg active:scale-95 active:shadow-inner duration-150"
 >
-
-🔄 <RotateCcw className="w-4 h-4 mr-2"/> Reset </button>
+🔄 <RotateCcw className="w-4 h-4"/> Reset
+</button>
 
 </div>
 
@@ -307,7 +302,7 @@ className="bg-gray-200 px-4 py-2 rounded-xl flex items-center"
 
 </div>
 
-<div className="bg-white rounded-xl overflow-hidden">
+<div className="bg-white rounded-xl shadow-md overflow-hidden">
 
 <table className="w-full">
 
@@ -326,7 +321,7 @@ className="bg-gray-200 px-4 py-2 rounded-xl flex items-center"
 
 {filteredData.map(m => (
 
-<tr key={m.id} className="border-t">
+<tr key={m.id} className="border-t hover:bg-gray-50 transition">
 
 <td className="p-4 text-blue-600 font-semibold">{m.claim_id}</td>
 
@@ -344,22 +339,20 @@ className="bg-gray-200 px-4 py-2 rounded-xl flex items-center"
 
 <button
 onClick={() => handleDelete(m.id)}
-className="flex items-center gap-2 px-3 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200"
-
+className="flex items-center gap-2 px-3 py-1 bg-red-100 text-red-700 rounded transition shadow-md hover:shadow-lg hover:bg-red-200 active:scale-95 active:shadow-inner duration-150"
 >
-
-🗑️ <Trash2 className="w-4 h-4"/> Delete </button>
+🗑️ <Trash2 className="w-4 h-4"/> 
+</button>
 
 {m.screenshot_url && (
 <button
 onClick={() =>
 setViewImage(`${BACKEND_URL}${m.screenshot_url}`)
 }
-className="flex items-center gap-2 px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
-
+className="flex items-center gap-2 px-3 py-1 bg-blue-100 text-blue-700 rounded transition shadow-md hover:shadow-lg hover:bg-blue-200 active:scale-95 active:shadow-inner duration-150"
 >
-
-👁️ <Eye className="w-4 h-4"/> View </button>
+👁️ <Eye className="w-4 h-4"/> 
+</button>
 )}
 
 </div>
@@ -380,15 +373,14 @@ className="flex items-center gap-2 px-3 py-1 bg-blue-100 text-blue-700 rounded h
 
 <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
 
-<div className="relative bg-white p-4 rounded-xl">
+<div className="relative bg-white p-4 rounded-xl shadow-xl">
 
 <button
 onClick={() => setViewImage(null)}
 className="absolute top-2 right-3 text-2xl"
-
 >
-
-❌ </button>
+❌
+</button>
 
 <img src={viewImage} alt="Screenshot" className="max-h-[80vh]" />
 
@@ -405,19 +397,29 @@ className="absolute top-2 right-3 text-2xl"
 
 const KpiCard = ({ title, value }) => (
 
-<div className="bg-white p-6 rounded-xl shadow">
-<p className="text-xs text-gray-400">{title}</p>
+<div className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition">
+
+<p className="text-xs text-gray-400 flex items-center gap-1">
+📊 {title}
+</p>
+
 <h2 className="text-3xl font-bold">
 <CountUp end={value}/>
 </h2>
+
 </div>
 );
 
 const KpiText = ({ title, value }) => (
 
-<div className="bg-white p-6 rounded-xl shadow">
-<p className="text-xs text-gray-400">{title}</p>
+<div className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition">
+
+<p className="text-xs text-gray-400 flex items-center gap-1">
+📌 {title}
+</p>
+
 <h2 className="text-lg font-bold">{value}</h2>
+
 </div>
 );
 
@@ -427,8 +429,14 @@ const Input = props => (
 
 const ChartCard = ({ title, children }) => (
 
-<div className="bg-white p-6 rounded-xl shadow">
-<h3 className="mb-4 font-bold">{title}</h3>
+<div className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition">
+
+<h3 className="mb-4 font-bold flex items-center gap-2">
+📉 {title}
+</h3>
+
 {children}
+
 </div>
+
 );
