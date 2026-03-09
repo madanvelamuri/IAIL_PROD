@@ -95,7 +95,6 @@ to: "",
 employee: "",
 type: ""
 });
-
 setFilteredData(mistakes);
 };
 
@@ -199,7 +198,6 @@ filteredData.forEach(m => {
 const month = new Date(m.created_at).toLocaleString("default", {
 month: "short"
 });
-
 monthly[month] = (monthly[month] || 0) + 1;
 });
 
@@ -250,12 +248,10 @@ Export CSV
 </div>
 
 <div className="grid grid-cols-4 gap-6">
-
 <KpiCard title="Total Mistakes" value={totalMistakes}/>
 <KpiCard title="This Month" value={thisMonthCount}/>
 <KpiText title="Most of Mistakes in" value={topMistake}/>
 <KpiText title="Most of Mistakes Done By" value={topEmployee}/>
-
 </div>
 
 <div className="bg-white p-5 rounded-xl shadow-md flex gap-4">
@@ -324,13 +320,9 @@ className="bg-gray-200 px-4 py-2 rounded-xl flex items-center gap-2 transition s
 <tr key={m.id} className="border-t hover:bg-gray-50 transition">
 
 <td className="p-4 text-blue-600 font-semibold">{m.claim_id}</td>
-
 <td className="p-4">{m.employee_name}</td>
-
 <td className="p-4">{m.mistake_type}</td>
-
 <td className="p-4">{m.description}</td>
-
 <td className="p-4">{new Date(m.created_at).toLocaleDateString()}</td>
 
 <td className="p-4">
@@ -339,19 +331,17 @@ className="bg-gray-200 px-4 py-2 rounded-xl flex items-center gap-2 transition s
 
 <button
 onClick={() => handleDelete(m.id)}
-className="flex items-center gap-2 px-3 py-1 bg-red-100 text-red-700 rounded transition shadow-md hover:shadow-lg hover:bg-red-200 active:scale-95 active:shadow-inner duration-150"
+className="flex items-center gap-2 px-3 py-1 bg-red-100 text-red-700 rounded transition shadow-md hover:shadow-lg hover:bg-red-200 active:scale-95"
 >
-🗑️ <Trash2 className="w-4 h-4"/> 
+🗑️ <Trash2 className="w-4 h-4"/>
 </button>
 
 {m.screenshot_url && (
 <button
-onClick={() =>
-setViewImage(`${BACKEND_URL}${m.screenshot_url}`)
-}
-className="flex items-center gap-2 px-3 py-1 bg-blue-100 text-blue-700 rounded transition shadow-md hover:shadow-lg hover:bg-blue-200 active:scale-95 active:shadow-inner duration-150"
+onClick={() => setViewImage(`${BACKEND_URL}${m.screenshot_url}`)}
+className="flex items-center gap-2 px-3 py-1 bg-blue-100 text-blue-700 rounded transition shadow-md hover:shadow-lg hover:bg-blue-200 active:scale-95"
 >
-👁️ <Eye className="w-4 h-4"/> 
+👁️ <Eye className="w-4 h-4"/>
 </button>
 )}
 
@@ -369,20 +359,32 @@ className="flex items-center gap-2 px-3 py-1 bg-blue-100 text-blue-700 rounded t
 
 </div>
 
+{/* IMAGE ZOOM MODAL */}
+
 {viewImage && (
 
-<div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+<div
+className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 transition-opacity duration-300"
+onClick={() => setViewImage(null)}
+>
 
-<div className="relative bg-white p-4 rounded-xl shadow-xl">
+<div
+className="relative bg-white p-4 rounded-xl shadow-2xl transform transition-all duration-300 scale-100 animate-zoomIn"
+onClick={(e) => e.stopPropagation()}
+>
 
 <button
 onClick={() => setViewImage(null)}
-className="absolute top-2 right-3 text-2xl"
+className="absolute top-2 right-3 text-2xl hover:scale-110 transition"
 >
 ❌
 </button>
 
-<img src={viewImage} alt="Screenshot" className="max-h-[80vh]" />
+<img
+src={viewImage}
+alt="Screenshot"
+className="max-h-[80vh] rounded-lg"
+/>
 
 </div>
 
@@ -438,5 +440,4 @@ const ChartCard = ({ title, children }) => (
 {children}
 
 </div>
-
 );
