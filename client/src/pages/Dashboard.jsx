@@ -34,7 +34,7 @@ export default function Dashboard() {
   const [filteredData, setFilteredData] = useState([]);
   const [viewImage, setViewImage] = useState(null);
 
-  /* Version State */
+  /* Version State - Bumped to 1.2.1 to trigger popup */
   const CURRENT_VERSION = "1.2.1";
   const [showUpdate, setShowUpdate] = useState(false);
 
@@ -249,9 +249,9 @@ export default function Dashboard() {
               <li>✨ **Zoom & Drag:** Inspect screenshots in high detail.</li>
               <li>📊 **UI Refinement:** New modern dashboard layout.</li>
               <li>⚡ **Pagination:** Faster loading for large datasets.</li>
-              <li>!!**Optional For Already Approved Claims.</li>
-              <li>!!**Mandatory For Verfied Claims.</li>
-              <li>!! **Added Check box in the screenshot column.</li>
+              <li className="pt-2 text-[10px] font-bold text-slate-500 uppercase tracking-tight">Submission Rules:</li>
+              <li className="text-blue-500 font-semibold italic">!! Optional For Already Approved Claims</li>
+              <li className="text-amber-600 font-semibold italic">!! Mandatory For Verified Claims</li>
             </ul>
             <button 
               onClick={handleCloseUpdate}
@@ -372,23 +372,22 @@ export default function Dashboard() {
             onMouseLeave={handleMouseUp}
           >
             <img
-  src={viewImage}
-  alt="Screenshot"
-  onError={(e) => {
-    console.warn("Screenshot not found:", viewImage);
-    e.target.src =
-      "https://via.placeholder.com/900x600?text=Screenshot+Not+Available";
-  }}
-  style={{
-    transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
-    transition: isDragging ? 'none' : 'transform 0.2s ease-out',
-    maxHeight: '85vh',
-    maxWidth: '90vw',
-    objectFit: 'contain'
-  }}
-  draggable="false"
-  className="rounded-lg shadow-2xl"
-/>
+              src={viewImage}
+              alt="Screenshot"
+              onError={(e) => {
+                console.warn("Screenshot not found:", viewImage);
+                e.target.src = "https://via.placeholder.com/900x600?text=Screenshot+Not+Available";
+              }}
+              style={{
+                transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
+                transition: isDragging ? 'none' : 'transform 0.2s ease-out',
+                maxHeight: '85vh',
+                maxWidth: '90vw',
+                objectFit: 'contain'
+              }}
+              draggable="false"
+              className="rounded-lg shadow-2xl"
+            />
           </div>
 
           <p className="absolute bottom-6 text-white/50 text-sm">Use above controls to ZOOM IN & ZOOM OUT </p>
