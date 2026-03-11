@@ -249,6 +249,9 @@ export default function Dashboard() {
               <li>✨ **Zoom & Drag:** Inspect screenshots in high detail.</li>
               <li>📊 **UI Refinement:** New modern dashboard layout.</li>
               <li>⚡ **Pagination:** Faster loading for large datasets.</li>
+              <li>!!**Optional For Already Approved Claims.</li>
+              <li>!!**Mandatory For Verfied Claims.</li>
+
             </ul>
             <button 
               onClick={handleCloseUpdate}

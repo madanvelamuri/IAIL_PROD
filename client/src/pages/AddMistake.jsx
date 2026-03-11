@@ -217,7 +217,7 @@ export default function AddMistake() {
           {/* Screenshot */}
           <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
             <label className="block mb-3 text-sm text-white/70">
-              Upload Screenshot (Optional)
+              Upload Screenshot (Optional For Already Approved Claims**Mandatory For Verfied Claims)
             </label>
             <input
               type="file"
