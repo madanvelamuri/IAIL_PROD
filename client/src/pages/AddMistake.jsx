@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import API from "../services/api";
-
+import Swal from "sweetalert2";
 export default function AddMistake() {
   const [form, setForm] = useState({
     claim_id: "",
@@ -71,11 +71,25 @@ export default function AddMistake() {
   }, []);
 
   useEffect(() => {
-    if (message) {
-      const timer = setTimeout(() => setMessage(""), 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [message]);
+  if (message) {
+
+    Swal.fire({
+      icon: message.includes("successfully") ? "success" : "error",
+      title: message.includes("successfully") ? "Success" : "Error",
+      text: message,
+      background: "#0f172a",
+      color: "#ffffff",
+      confirmButtonColor: "#22c55e",
+      backdrop: `
+        rgba(0,0,0,0.8)
+        blur(6px)
+      `
+    });
+
+    const timer = setTimeout(() => setMessage(""), 3000);
+    return () => clearTimeout(timer);
+  }
+}, [message]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
