@@ -33,7 +33,9 @@ export default function Dashboard() {
   const [mistakes, setMistakes] = useState([]);
   const [filteredData, setFilteredData] = useState([]);
   const [viewImage, setViewImage] = useState(null);
-
+// NEW STATE FOR HIDE BUTTON//
+  const [showEmployeeTable, setShowEmployeeTable] = useState(true);
+  
   /* Version State - Bumped to 1.2.1 to trigger popup */
   const CURRENT_VERSION = "1.2.1";
   const [showUpdate, setShowUpdate] = useState(false);
@@ -337,7 +339,20 @@ export default function Dashboard() {
         <ChartCard title="📈 Monthly Trend"><Line data={trendData}/></ChartCard>
         <ChartCard title="📊 Mistake Type Distribution"><Bar data={barData}/></ChartCard>
       </div>
-      {/* EMPLOYEE WISE COMPLETE MISTAKE COUNT */}
+     {/* EMPLOYEE WISE COMPLETE MISTAKE COUNT */}
+
+<div className="flex justify-end">
+  <button
+    onClick={() => setShowEmployeeTable(!showEmployeeTable)}
+    className="bg-slate-800 text-white px-4 py-2 rounded-lg text-sm hover:bg-slate-700 transition"
+  >
+    {showEmployeeTable
+      ? "Hide Employee Mistake Count"
+      : "Show Employee Mistake Count"}
+  </button>
+</div>
+
+{showEmployeeTable && (
 <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
   <h3 className="text-lg font-bold text-slate-800 mb-4">
     👨‍💻 Complete Mistake Count - Employee Wise
@@ -363,6 +378,7 @@ export default function Dashboard() {
     </tbody>
   </table>
 </div>
+)}
 
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         <table className="w-full text-left">
