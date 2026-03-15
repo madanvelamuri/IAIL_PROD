@@ -35,7 +35,7 @@ export default function Dashboard() {
   const [viewImage, setViewImage] = useState(null);
 // NEW STATE FOR HIDE BUTTON//
   const [showEmployeeTable, setShowEmployeeTable] = useState(true);
-  
+
   /* Version State - Bumped to 1.2.1 to trigger popup */
   const CURRENT_VERSION = "1.2.1";
   const [showUpdate, setShowUpdate] = useState(false);
@@ -165,7 +165,7 @@ export default function Dashboard() {
     }
     const headers = ["Claim ID", "Employee Name", "Mistake Type", "Description", "Created Date"];
     const rows = filteredData.map(m => [
-      `="${m.claim_id}"`,
+      `"${m.claim_id}"`,
       `"${m.employee_name}"`,
       `"${m.mistake_type}"`,
       `"${m.description}"`,
