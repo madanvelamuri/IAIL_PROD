@@ -225,6 +225,12 @@ export default function Dashboard() {
   filteredData.forEach(m => {
     employeeFrequency[m.employee_name] = (employeeFrequency[m.employee_name] || 0) + 1;
   });
+  const employeeMistakeList = Object.entries(employeeFrequency)
+  .map(([employee, count]) => ({
+    employee,
+    count
+  }))
+  .sort((a, b) => b.count - a.count);
 
   const topEmployee = Object.keys(employeeFrequency).length > 0
     ? Object.keys(employeeFrequency).reduce((a, b) => employeeFrequency[a] > employeeFrequency[b] ? a : b)
@@ -331,6 +337,32 @@ export default function Dashboard() {
         <ChartCard title="📈 Monthly Trend"><Line data={trendData}/></ChartCard>
         <ChartCard title="📊 Mistake Type Distribution"><Bar data={barData}/></ChartCard>
       </div>
+      {/* EMPLOYEE WISE COMPLETE MISTAKE COUNT */}
+<div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+  <h3 className="text-lg font-bold text-slate-800 mb-4">
+    👨‍💻 Complete Mistake Count - Employee Wise
+  </h3>
+
+  <table className="w-full text-left border border-slate-200 rounded-xl overflow-hidden">
+    <thead className="bg-slate-100">
+      <tr>
+        <th className="p-3">Employee Name</th>
+        <th className="p-3 text-center">Mistake Count</th>
+      </tr>
+    </thead>
+
+    <tbody>
+      {employeeMistakeList.map((emp, index) => (
+        <tr key={index} className="border-t hover:bg-slate-50">
+          <td className="p-3 font-medium">{emp.employee}</td>
+          <td className="p-3 text-center font-bold text-blue-600">
+            {emp.count}
+          </td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+</div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         <table className="w-full text-left">
