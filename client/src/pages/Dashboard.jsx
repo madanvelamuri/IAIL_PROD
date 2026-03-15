@@ -3,7 +3,7 @@ import API from "../services/api";
 import CountUp from "react-countup";
 import { Bar, Line } from "react-chartjs-2";
 import { Search, RotateCcw, Download, Trash2, LayoutDashboard, Eye, ZoomIn, ZoomOut, Maximize, X, Rocket } from "lucide-react";
-
+import Swal from "sweetalert2";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -113,14 +113,48 @@ export default function Dashboard() {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Are u sure to Delete this data?")) return;
-    try {
-      await API.delete(`/mistakes/${id}`);
-      fetchMistakes();
-    } catch (err) {
-      console.error("Delete failed:", err);
-    }
-  };
+
+  const result = await Swal.fire({
+    title: "Are u sure to Delete this data?",
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonText: "OK",
+    cancelButtonText: "Cancel",
+    confirmButtonColor: "#ef4444",
+    cancelButtonColor: "#0ea5e9",
+    background: "#0f172a",
+    color: "#ffffff",
+    backdrop: "rgba(0,0,0,0.8)"
+  });
+
+  if (!result.isConfirmed) return;
+
+  try {
+    await API.delete(`/mistakes/${id}`);
+    fetchMistakes();
+
+    Swal.fire({
+      icon: "success",
+      title: "Deleted",
+      text: "Data deleted successfully",
+      confirmButtonColor: "#22c55e",
+      background: "#0f172a",
+      color: "#ffffff"
+    });
+
+  } catch (err) {
+    console.error("Delete failed:", err);
+
+    Swal.fire({
+      icon: "error",
+      title: "Error",
+      text: "Delete failed",
+      confirmButtonColor: "#ef4444",
+      background: "#0f172a",
+      color: "#ffffff"
+    });
+  }
+};
 
   const handleExportCSV = () => {
     if (filteredData.length === 0) {
