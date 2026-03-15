@@ -27,7 +27,7 @@ ChartJS.register(
   Filler
 );
 
-const BACKEND_URL = "https://iailgo-production.up.railway.app";
+const BACKEND_URL = "http://localhost:5000";
 
 export default function Dashboard() {
   const [mistakes, setMistakes] = useState([]);

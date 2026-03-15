@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@tsparticles/react": "^3.0.0",
-    "axios": "^1.6.0",
+    "axios": "^1.13.6",
     "bcryptjs": "^3.0.3",
     "chart.js": "^4.5.1",
     "cors": "^2.8.6",

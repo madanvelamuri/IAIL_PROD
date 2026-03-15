@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const API = axios.create({
-  baseURL: "https://iailgo-production.up.railway.app/api",
+  baseURL: import.meta.env.VITE_API_URL || "http://localhost:5000/api",
 });
 
 /* REQUEST INTERCEPTOR */
@@ -15,12 +15,12 @@ API.interceptors.request.use((config) => {
   return config;
 });
 
-/*  RESPONSE INTERCEPTOR Handles session expiry */
+/* RESPONSE INTERCEPTOR */
 API.interceptors.response.use(
   (response) => response,
   (error) => {
+
     if (error.response && error.response.status === 401) {
-      // Token expired or invalid
       localStorage.removeItem("token");
       localStorage.removeItem("user");
 
