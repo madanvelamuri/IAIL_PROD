@@ -253,4 +253,3 @@ https://github.com/madanvelamuri
 
 # 📜 License
 
-This project is for internal use and learning purposes.
