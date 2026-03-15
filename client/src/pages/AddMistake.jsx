@@ -25,9 +25,9 @@ export default function AddMistake() {
     "harshitha.botsa","hashrita.suthapalli","aryan.kumar",
     "dikshya.priyadarshini","durgabhavani.k","hemalatha.devuni",
     "jahnavi.thathakuntla","lakshmimounika.ch","madanmohan.velamuri",
-    "pavana.r","prakash.sinha","priti.chendkale","priyanshee.verifier",
+    "pavana.r","suneel.pedarasi","priti.chendkale","netravathi.s",
     "ramya.gade","sailakshmi.patarlapalli","shivani.verifier",
-    "shruti.bajju","sirisha.pallapu","swagatika.verifier",
+    "shruti.bajju","sirisha.pallapu","lipika.behera",
     "swapna.s","thaslimsulthana.shaik","vasu.nelavelli",
     "yashod.tupili","ziaur.verifier",
   ];
