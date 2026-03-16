@@ -403,7 +403,10 @@ export default function Dashboard() {
                 <td className="p-4">
                   <div className="flex justify-center gap-2">
                     {m.screenshot_url && (
-                      <button onClick={() => setViewImage(`${BACKEND_URL}${m.screenshot_url}`)} className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition">
+                      <button
+                       onClick={() => setViewImage(m.screenshot_url)}
+                     className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition"
+                      >
                         <Eye className="w-4 h-4"/>
                       </button>
                     )}
