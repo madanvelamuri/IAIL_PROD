@@ -323,25 +323,39 @@ export default function AddMistake() {
             />
 
             {preview && (
-              <div className="mt-4 relative">
-                <img
-                  src={preview}
-                  alt="Preview"
-                  className="rounded-xl max-h-60 border border-white/20"
-                />
+  <div className="mt-4 flex items-center gap-4">
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPreview(null);
-                    setForm({ ...form, screenshot: null });
-                  }}
-                  className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded-lg text-xs"
-                >
-                  Remove
-                </button>
-              </div>
-            )}
+    {/* URL display */}
+    <input
+      type="text"
+      value={preview}
+      readOnly
+      className="flex-1 bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-xs text-white"
+    />
+
+    {/* View Image */}
+    <button
+      type="button"
+      onClick={() => window.open(preview, "_blank")}
+      className="bg-blue-500 text-white px-3 py-1 rounded-lg text-xs hover:bg-blue-600"
+    >
+      View Image
+    </button>
+
+    {/* Remove */}
+    <button
+      type="button"
+      onClick={() => {
+        setPreview(null);
+        setForm({ ...form, screenshot: null });
+      }}
+      className="bg-red-500 text-white px-3 py-1 rounded-lg text-xs"
+    >
+      Remove
+    </button>
+
+  </div>
+)}
 
           </div>
 
