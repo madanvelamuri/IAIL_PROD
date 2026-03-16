@@ -37,7 +37,7 @@ export default function Dashboard() {
   const [showEmployeeTable, setShowEmployeeTable] = useState(true);
 
   /* Version State - Bumped to 1.2.1 to trigger popup */
-  const CURRENT_VERSION = "1.2.1";
+  const CURRENT_VERSION = "1.3.0";
   const [showUpdate, setShowUpdate] = useState(false);
 
   /* Zoom State */
@@ -288,13 +288,28 @@ export default function Dashboard() {
               <h4 className="font-bold text-slate-800">New Version {CURRENT_VERSION}</h4>
             </div>
             <ul className="text-xs text-slate-600 space-y-1.5 ml-1">
-              <li>✨ **Zoom & Drag:** Inspect screenshots in high detail.</li>
-              <li>📊 **UI Refinement:** New modern dashboard layout.</li>
-              <li>⚡ **Pagination:** Faster loading for large datasets.</li>
-              <li className="pt-2 text-[10px] font-bold text-slate-500 uppercase tracking-tight">Submission Rules:</li>
-              <li className="text-blue-500 font-semibold italic">!! Optional For Already Approved Claims</li>
-              <li className="text-amber-600 font-semibold italic">!! Mandatory For Verified Claims</li>
-            </ul>
+
+<li>📋 <b>Paste Screenshot:</b> Use <b>Ctrl + V</b> to paste screenshot directly.</li>
+
+<li>🖼 <b>Screenshot Preview:</b> View screenshot before submitting mistake.</li>
+
+<li>❌ <b>Remove Screenshot:</b> Easily remove uploaded image.</li>
+
+<li>⚡ <b>Faster QC Workflow:</b> No need to browse files manually.</li>
+
+<li className="pt-2 text-[10px] font-bold text-slate-500 uppercase tracking-tight">
+Submission Rules:
+</li>
+
+<li className="text-blue-500 font-semibold italic">
+!! Optional For Already Approved Claims
+</li>
+
+<li className="text-amber-600 font-semibold italic">
+!! Mandatory For Verified Claims
+</li>
+
+</ul>
             <button 
               onClick={handleCloseUpdate}
               className="mt-4 w-full bg-blue-600 text-white py-2 rounded-xl text-xs font-bold hover:bg-blue-700 transition shadow-md"

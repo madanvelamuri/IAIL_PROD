@@ -1,16 +1,19 @@
 import React, { useState, useRef, useEffect } from "react";
 import API from "../services/api";
 import Swal from "sweetalert2";
+
 export default function AddMistake() {
+
   const [form, setForm] = useState({
     claim_id: "",
     employee_name: "",
     mistake_type: "",
     description: "",
     screenshot: null,
-    is_verification: false, // New state for checkbox
+    is_verification: false,
   });
 
+  const [preview, setPreview] = useState(null);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -70,31 +73,70 @@ export default function AddMistake() {
     };
   }, []);
 
+  /* PASTE SCREENSHOT FEATURE */
   useEffect(() => {
-  if (message) {
 
-    Swal.fire({
-      icon: message.includes("successfully") ? "success" : "error",
-      title: message.includes("successfully") ? "Success" : "Error",
-      text: message,
-      background: "#0f172a",
-      color: "#ffffff",
-      confirmButtonColor: "#22c55e",
-      backdrop: `
+    const handlePaste = (e) => {
+
+      const items = e.clipboardData.items;
+
+      for (let i = 0; i < items.length; i++) {
+
+        if (items[i].type.indexOf("image") !== -1) {
+
+          const blob = items[i].getAsFile();
+
+          const file = new File(
+            [blob],
+            `pasted-${Date.now()}.png`,
+            { type: blob.type }
+          );
+
+          setForm((prev) => ({
+            ...prev,
+            screenshot: file
+          }));
+
+          setPreview(URL.createObjectURL(file));
+
+          setMessage("Screenshot pasted successfully!");
+
+        }
+      }
+
+    };
+
+    window.addEventListener("paste", handlePaste);
+
+    return () => window.removeEventListener("paste", handlePaste);
+
+  }, []);
+
+  useEffect(() => {
+    if (message) {
+
+      Swal.fire({
+        icon: message.includes("successfully") ? "success" : "error",
+        title: message.includes("successfully") ? "Success" : "Error",
+        text: message,
+        background: "#0f172a",
+        color: "#ffffff",
+        confirmButtonColor: "#22c55e",
+        backdrop: `
         rgba(0,0,0,0.8)
         blur(6px)
       `
-    });
+      });
 
-    const timer = setTimeout(() => setMessage(""), 3000);
-    return () => clearTimeout(timer);
-  }
-}, [message]);
+      const timer = setTimeout(() => setMessage(""), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [message]);
 
   const handleSubmit = async (e) => {
+
     e.preventDefault();
 
-    // Conditional Validation: Screenshot mandatory for Verification Claim
     if (form.is_verification && !form.screenshot) {
       setMessage("Error: Screenshot is mandatory for Verification Claims.");
       return;
@@ -104,7 +146,9 @@ export default function AddMistake() {
     setMessage("");
 
     try {
+
       const data = new FormData();
+
       data.append("claim_id", form.claim_id);
       data.append("employee_name", form.employee_name);
       data.append("mistake_type", form.mistake_type);
@@ -128,16 +172,20 @@ export default function AddMistake() {
         is_verification: false,
       });
 
+      setPreview(null);
+
     } catch (err) {
       console.error(err);
       setMessage("Error submitting mistake.");
     }
 
     setLoading(false);
+
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-6">
+
       <div className="w-full max-w-3xl backdrop-blur-2xl bg-white/5 border border-white/10 rounded-3xl p-12 shadow-[0_20px_60px_rgba(0,0,0,0.6)] text-white">
 
         <h2 className="text-4xl font-extrabold mb-10 text-center bg-gradient-to-r from-cyan-400 to-teal-400 bg-clip-text text-transparent">
@@ -226,7 +274,7 @@ export default function AddMistake() {
             )}
           </div>
 
-          {/* Claim Type Checkbox Section */}
+          {/* Claim Type */}
           <div className="flex items-center gap-6 bg-white/5 border border-white/10 rounded-2xl p-5">
             <span className="text-sm text-white/70">Claim Type:</span>
             <label className="flex items-center gap-2 cursor-pointer group">
@@ -256,19 +304,48 @@ export default function AddMistake() {
 
           {/* Screenshot */}
           <div className={`bg-white/5 border rounded-2xl p-6 transition-colors ${form.is_verification && !form.screenshot ? 'border-amber-500/50' : 'border-white/10'}`}>
+
             <label className="block mb-3 text-sm text-white/70">
               Upload Screenshot {form.is_verification ? <span className="text-amber-400 font-bold">(MANDATORY)</span> : '(Optional)'}
             </label>
+
             <input
               type="file"
-              onChange={(e) =>
-                setForm({ ...form, screenshot: e.target.files[0] })
-              }
+              onChange={(e) => {
+                const file = e.target.files[0];
+                setForm({ ...form, screenshot: file });
+
+                if (file) {
+                  setPreview(URL.createObjectURL(file));
+                }
+              }}
               className="block w-full text-sm text-white file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-cyan-500 file:text-slate-900 file:font-semibold hover:file:bg-cyan-600 transition"
             />
+
+            {preview && (
+              <div className="mt-4 relative">
+                <img
+                  src={preview}
+                  alt="Preview"
+                  className="rounded-xl max-h-60 border border-white/20"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPreview(null);
+                    setForm({ ...form, screenshot: null });
+                  }}
+                  className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded-lg text-xs"
+                >
+                  Remove
+                </button>
+              </div>
+            )}
+
           </div>
 
-          {/* Submit Button with Spinner */}
+          {/* Submit Button */}
           <button
             type="submit"
             disabled={loading}
@@ -279,19 +356,6 @@ export default function AddMistake() {
             )}
             {loading ? "Submitting..." : "Submit Mistake"}
           </button>
-
-          {/* Message Below Button */}
-          {message && (
-            <div
-              className={`mt-4 text-center text-sm font-semibold ${
-                message.includes("successfully")
-                  ? "text-emerald-400"
-                  : "text-red-400"
-              }`}
-            >
-              {message}
-            </div>
-          )}
 
         </form>
       </div>
