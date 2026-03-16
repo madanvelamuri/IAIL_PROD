@@ -3,33 +3,15 @@ const router = express.Router();
 const multer = require("multer");
 const db = require("../config/db");
 const authMiddleware = require("../middleware/auth");
-const path = require("path");
-const fs = require("fs");
+const supabase = require("../config/supabase");
 
 // =======================
-// ENSURE UPLOADS FOLDER EXISTS
+// MULTER CONFIG (MEMORY STORAGE FOR SUPABASE)
 // =======================
 
-const uploadPath = path.join(__dirname, "../uploads");
-
-if (!fs.existsSync(uploadPath)) {
- fs.mkdirSync(uploadPath, { recursive: true });
-}
-
-// =======================
-// MULTER CONFIG
-// =======================
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadPath);
-  },
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + "-" + file.originalname);
-  },
+const upload = multer({
+  storage: multer.memoryStorage(),
 });
-
-const upload = multer({ storage });
 
 // =======================
 // CREATE MISTAKE
@@ -49,12 +31,37 @@ router.post(
       });
     }
 
-    // store path instead of just filename
-    const screenshot_url = req.file
-      ? `/uploads/${req.file.filename}`
-      : null;
+    let screenshot_url = null;
 
     try {
+
+      // =======================
+      // UPLOAD SCREENSHOT TO SUPABASE
+      // =======================
+
+      if (req.file) {
+
+        const fileName = `${Date.now()}-${req.file.originalname}`;
+
+        const { error } = await supabase.storage
+          .from("screenshots")
+          .upload(fileName, req.file.buffer, {
+            contentType: req.file.mimetype,
+          });
+
+        if (error) {
+          console.error("SUPABASE UPLOAD ERROR:", error);
+          return res.status(500).json({
+            message: "Screenshot upload failed",
+          });
+        }
+
+        screenshot_url = `${process.env.SUPABASE_URL}/storage/v1/object/public/screenshots/${fileName}`;
+      }
+
+      // =======================
+      // INSERT INTO DATABASE
+      // =======================
 
       await db.query(
         `INSERT INTO mistakes 
