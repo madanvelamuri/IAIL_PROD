@@ -33,10 +33,9 @@ export default function Dashboard() {
   const [mistakes, setMistakes] = useState([]);
   const [filteredData, setFilteredData] = useState([]);
   const [viewImage, setViewImage] = useState(null);
-// NEW STATE FOR HIDE BUTTON//
   const [showEmployeeTable, setShowEmployeeTable] = useState(true);
 
-  /* Version State - Bumped to 1.2.1 to trigger popup */
+  /* Version State */
   const CURRENT_VERSION = "1.3.0";
   const [showUpdate, setShowUpdate] = useState(false);
 
@@ -60,7 +59,6 @@ export default function Dashboard() {
   useEffect(() => {
     fetchMistakes();
 
-    // Check for Version Update
     const lastVersion = localStorage.getItem("app_version");
     if (lastVersion !== CURRENT_VERSION) {
       setShowUpdate(true);
@@ -115,68 +113,79 @@ export default function Dashboard() {
   };
 
   const handleDelete = async (id) => {
-
-  const result = await Swal.fire({
-    title: "Are u sure to Delete this data?",
-    icon: "warning",
-    showCancelButton: true,
-    confirmButtonText: "OK",
-    cancelButtonText: "Cancel",
-    confirmButtonColor: "#ef4444",
-    cancelButtonColor: "#0ea5e9",
-    background: "#0f172a",
-    color: "#ffffff",
-    backdrop: "rgba(0,0,0,0.8)"
-  });
-
-  if (!result.isConfirmed) return;
-
-  try {
-    await API.delete(`/mistakes/${id}`);
-    fetchMistakes();
-
-    Swal.fire({
-      icon: "success",
-      title: "Deleted",
-      text: "Data deleted successfully",
-      confirmButtonColor: "#22c55e",
-      background: "#0f172a",
-      color: "#ffffff"
-    });
-
-  } catch (err) {
-    console.error("Delete failed:", err);
-
-    Swal.fire({
-      icon: "error",
-      title: "Error",
-      text: "Delete failed",
+    const result = await Swal.fire({
+      title: "Are u sure to Delete this data?",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "OK",
+      cancelButtonText: "Cancel",
       confirmButtonColor: "#ef4444",
+      cancelButtonColor: "#0ea5e9",
       background: "#0f172a",
-      color: "#ffffff"
+      color: "#ffffff",
+      backdrop: "rgba(0,0,0,0.8)"
     });
-  }
-};
 
+    if (!result.isConfirmed) return;
+
+    try {
+      await API.delete(`/mistakes/${id}`);
+      fetchMistakes();
+      Swal.fire({
+        icon: "success",
+        title: "Deleted",
+        text: "Data deleted successfully",
+        confirmButtonColor: "#22c55e",
+        background: "#0f172a",
+        color: "#ffffff"
+      });
+    } catch (err) {
+      console.error("Delete failed:", err);
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "Delete failed",
+        confirmButtonColor: "#ef4444",
+        background: "#0f172a",
+        color: "#ffffff"
+      });
+    }
+  };
+
+  // ✅ FIXED EXPORT: Prevents scientific notation in Excel
   const handleExportCSV = () => {
     if (filteredData.length === 0) {
       alert("No data to export");
       return;
     }
+
     const headers = ["Claim ID", "Employee Name", "Mistake Type", "Description", "Created Date"];
+
     const rows = filteredData.map(m => [
-      `"${m.claim_id}"`,
+      `="${String(m.claim_id)}"`, // Forces Excel to treat as String formula
       `"${m.employee_name}"`,
       `"${m.mistake_type}"`,
       `"${m.description}"`,
       `"${new Date(m.created_at).toISOString().split("T")[0]}"`
     ]);
-    const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+
+    const csvContent = [headers, ...rows]
+      .map(e => e.join(","))
+      .join("\n");
+
+    const blob = new Blob(["\uFEFF" + csvContent], {
+      type: "text/csv;charset=utf-8;"
+    });
+
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
+
     link.setAttribute("href", url);
-    link.setAttribute("download", `mistakes_report_${new Date().toISOString().split("T")[0]}.csv`);
+    link.setAttribute(
+      "download",
+      `mistakes_report_${new Date().toISOString().split("T")[0]}.csv`
+    );
+
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -208,6 +217,7 @@ export default function Dashboard() {
 
   const handleMouseUp = () => setIsDragging(false);
 
+  /* Calculations */
   const totalMistakes = filteredData.length;
   const thisMonth = new Date().getMonth();
   const thisMonthCount = filteredData.filter(
@@ -227,12 +237,10 @@ export default function Dashboard() {
   filteredData.forEach(m => {
     employeeFrequency[m.employee_name] = (employeeFrequency[m.employee_name] || 0) + 1;
   });
+  
   const employeeMistakeList = Object.entries(employeeFrequency)
-  .map(([employee, count]) => ({
-    employee,
-    count
-  }))
-  .sort((a, b) => b.count - a.count);
+    .map(([employee, count]) => ({ employee, count }))
+    .sort((a, b) => b.count - a.count);
 
   const topEmployee = Object.keys(employeeFrequency).length > 0
     ? Object.keys(employeeFrequency).reduce((a, b) => employeeFrequency[a] > employeeFrequency[b] ? a : b)
@@ -288,28 +296,14 @@ export default function Dashboard() {
               <h4 className="font-bold text-slate-800">New Version {CURRENT_VERSION}</h4>
             </div>
             <ul className="text-xs text-slate-600 space-y-1.5 ml-1">
-
-<li>📋 <b>Paste Screenshot:</b> Use <b>Ctrl + V</b> to paste screenshot directly.</li>
-
-<li>🖼 <b>Screenshot Preview:</b> View screenshot before submitting mistake.</li>
-
-<li>❌ <b>Remove Screenshot:</b> Easily remove uploaded image.</li>
-
-<li>⚡ <b>Faster QC Workflow:</b> No need to browse files manually.</li>
-
-<li className="pt-2 text-[10px] font-bold text-slate-500 uppercase tracking-tight">
-Submission Rules:
-</li>
-
-<li className="text-blue-500 font-semibold italic">
-!! Optional For Already Approved Claims
-</li>
-
-<li className="text-amber-600 font-semibold italic">
-!! Mandatory For Verified Claims
-</li>
-
-</ul>
+              <li>📋 <b>Paste Screenshot:</b> Use <b>Ctrl + V</b> to paste screenshot directly.</li>
+              <li>🖼 <b>Screenshot Preview:</b> View screenshot before submitting mistake.</li>
+              <li>❌ <b>Remove Screenshot:</b> Easily remove uploaded image.</li>
+              <li>⚡ <b>Faster QC Workflow:</b> No need to browse files manually.</li>
+              <li className="pt-2 text-[10px] font-bold text-slate-500 uppercase tracking-tight">Submission Rules:</li>
+              <li className="text-blue-500 font-semibold italic">!! Optional For Already Approved Claims</li>
+              <li className="text-amber-600 font-semibold italic">!! Mandatory For Verified Claims</li>
+            </ul>
             <button 
               onClick={handleCloseUpdate}
               className="mt-4 w-full bg-blue-600 text-white py-2 rounded-xl text-xs font-bold hover:bg-blue-700 transition shadow-md"
@@ -354,46 +348,37 @@ Submission Rules:
         <ChartCard title="📈 Monthly Trend"><Line data={trendData}/></ChartCard>
         <ChartCard title="📊 Mistake Type Distribution"><Bar data={barData}/></ChartCard>
       </div>
-     {/* EMPLOYEE WISE COMPLETE MISTAKE COUNT */}
 
-<div className="flex justify-end">
-  <button
-    onClick={() => setShowEmployeeTable(!showEmployeeTable)}
-    className="bg-slate-800 text-white px-4 py-2 rounded-lg text-sm hover:bg-slate-700 transition"
-  >
-    {showEmployeeTable
-      ? "Hide Employee Mistake Count"
-      : "Show Employee Mistake Count"}
-  </button>
-</div>
+      <div className="flex justify-end">
+        <button
+          onClick={() => setShowEmployeeTable(!showEmployeeTable)}
+          className="bg-slate-800 text-white px-4 py-2 rounded-lg text-sm hover:bg-slate-700 transition"
+        >
+          {showEmployeeTable ? "Hide Employee Mistake Count" : "Show Employee Mistake Count"}
+        </button>
+      </div>
 
-{showEmployeeTable && (
-<div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-  <h3 className="text-lg font-bold text-slate-800 mb-4">
-    👨‍💻 Complete Mistake Count - Employee Wise
-  </h3>
-
-  <table className="w-full text-left border border-slate-200 rounded-xl overflow-hidden">
-    <thead className="bg-slate-100">
-      <tr>
-        <th className="p-3">Employee Name</th>
-        <th className="p-3 text-center">Mistake Count</th>
-      </tr>
-    </thead>
-
-    <tbody>
-      {employeeMistakeList.map((emp, index) => (
-        <tr key={index} className="border-t hover:bg-slate-50">
-          <td className="p-3 font-medium">{emp.employee}</td>
-          <td className="p-3 text-center font-bold text-blue-600">
-            {emp.count}
-          </td>
-        </tr>
-      ))}
-    </tbody>
-  </table>
-</div>
-)}
+      {showEmployeeTable && (
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+          <h3 className="text-lg font-bold text-slate-800 mb-4">👨‍💻 Complete Mistake Count - Employee Wise</h3>
+          <table className="w-full text-left border border-slate-200 rounded-xl overflow-hidden">
+            <thead className="bg-slate-100">
+              <tr>
+                <th className="p-3">Employee Name</th>
+                <th className="p-3 text-center">Mistake Count</th>
+              </tr>
+            </thead>
+            <tbody>
+              {employeeMistakeList.map((emp, index) => (
+                <tr key={index} className="border-t hover:bg-slate-50">
+                  <td className="p-3 font-medium">{emp.employee}</td>
+                  <td className="p-3 text-center font-bold text-blue-600">{emp.count}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         <table className="w-full text-left">
@@ -419,8 +404,8 @@ Submission Rules:
                   <div className="flex justify-center gap-2">
                     {m.screenshot_url && (
                       <button
-                       onClick={() => setViewImage(m.screenshot_url)}
-                     className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition"
+                        onClick={() => setViewImage(m.screenshot_url)}
+                        className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition"
                       >
                         <Eye className="w-4 h-4"/>
                       </button>
@@ -445,7 +430,6 @@ Submission Rules:
         </div>
       </div>
 
-      {/* VERSION BADGE */}
       <div className="fixed bottom-4 right-4 bg-slate-800/80 backdrop-blur-sm text-white text-[10px] px-3 py-1 rounded-full opacity-60 hover:opacity-100 transition shadow-lg border border-white/10 z-40">
         Build: v{CURRENT_VERSION}-stable
       </div>
@@ -453,8 +437,6 @@ Submission Rules:
       {/* ZOOMABLE IMAGE MODAL */}
       {viewImage && (
         <div className="fixed inset-0 bg-slate-900/95 backdrop-blur-sm flex flex-col items-center justify-center z-50 p-4">
-          
-          {/* Controls Bar */}
           <div className="absolute top-6 flex items-center gap-4 bg-white/10 backdrop-blur-md px-6 py-3 rounded-full border border-white/20 z-50">
             <button onClick={handleZoomOut} className="text-white hover:text-blue-400 transition" title="Zoom Out"><ZoomOut /></button>
             <span className="text-white font-mono w-12 text-center">{Math.round(scale * 100)}%</span>
@@ -475,7 +457,6 @@ Submission Rules:
               src={viewImage}
               alt="Screenshot"
               onError={(e) => {
-                console.warn("Screenshot not found:", viewImage);
                 e.target.src = "https://via.placeholder.com/900x600?text=Screenshot+Not+Available";
               }}
               style={{
@@ -489,7 +470,6 @@ Submission Rules:
               className="rounded-lg shadow-2xl"
             />
           </div>
-
           <p className="absolute bottom-6 text-white/50 text-sm">Use above controls to ZOOM IN & ZOOM OUT </p>
         </div>
       )}
