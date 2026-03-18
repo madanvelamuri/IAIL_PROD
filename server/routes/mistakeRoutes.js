@@ -23,12 +23,20 @@ router.post(
   upload.single("screenshot"),
   async (req, res) => {
 
-    // Ensure claim_id is treated as a string immediately
     let { claim_id, employee_name, mistake_type, description } = req.body;
-    
-    // Force conversion to string to prevent scientific notation issues
+
+    // =======================
+    // FIX CLAIM ID (IMPORTANT)
+    // =======================
+
     if (claim_id) {
-      claim_id = String(claim_id).trim();
+      claim_id = claim_id.toString().trim();
+
+      if (claim_id.includes("E+")) {
+        return res.status(400).json({
+          message: "Invalid Claim ID format. Please fix Excel data.",
+        });
+      }
     }
 
     if (!claim_id || !employee_name || !mistake_type || !description) {
