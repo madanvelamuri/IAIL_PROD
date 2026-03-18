@@ -23,7 +23,13 @@ router.post(
   upload.single("screenshot"),
   async (req, res) => {
 
-    const { claim_id, employee_name, mistake_type, description } = req.body;
+    // Ensure claim_id is treated as a string immediately
+    let { claim_id, employee_name, mistake_type, description } = req.body;
+    
+    // Force conversion to string to prevent scientific notation issues
+    if (claim_id) {
+      claim_id = String(claim_id).trim();
+    }
 
     if (!claim_id || !employee_name || !mistake_type || !description) {
       return res.status(400).json({
