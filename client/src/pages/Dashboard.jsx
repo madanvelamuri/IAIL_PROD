@@ -410,7 +410,7 @@ Submission Rules:
           <tbody>
             {currentRows.map(m => (
               <tr key={m.id} className="border-t hover:bg-slate-50 transition">
-                <td className="p-4 text-blue-600 font-bold">#{m.claim_id}</td>
+                <td className="p-4 text-blue-600 font-bold">#{String(m.claim_id)}</td>
                 <td className="p-4 font-medium">{m.employee_name}</td>
                 <td className="p-4"><span className="bg-slate-100 px-2 py-1 rounded text-xs font-bold uppercase">{m.mistake_type}</span></td>
                 <td className="p-4 text-slate-500 text-sm truncate max-w-[200px]">{m.description}</td>
