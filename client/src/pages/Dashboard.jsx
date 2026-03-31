@@ -163,11 +163,11 @@ export default function Dashboard() {
 
     const rows = filteredData.map(m => [
   `="${String(m.claim_id)}"`,
-  `"${m.employee_name}"`,
-  `"${m.mistake_type}"`,
-  `"${m.description}"`,
+  `"${(m.employee_name || "").replace(/"/g, '""')}"`,
+  `"${(m.mistake_type || "").replace(/"/g, '""')}"`,
+  `"${(m.description || "").replace(/"/g, '""')}"`,
   `"${new Date(m.created_at).toISOString().split("T")[0]}"`,
-  "${m.screenshot_url || ""}" // ✅ ADD THIS (safe fallback)
+  `"${(m.screenshot_url || "").replace(/"/g, '""')}"`
 ]);
 
     const csvContent = [headers, ...rows]
