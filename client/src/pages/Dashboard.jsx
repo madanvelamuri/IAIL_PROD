@@ -167,7 +167,9 @@ export default function Dashboard() {
   `"${m.mistake_type}"`,
   `"${m.description}"`,
   `"${new Date(m.created_at).toISOString().split("T")[0]}"`,
-  `"${m.screenshot_url || ""}"` // ✅ ADD THIS (safe fallback)
+  m.screenshot_url
+  ? `=HYPERLINK("${m.screenshot_url}", "View")`
+  : `""` // ✅ ADD THIS (safe fallback)
 ]);
 
     const csvContent = [headers, ...rows]
