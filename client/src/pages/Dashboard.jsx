@@ -168,7 +168,7 @@ export default function Dashboard() {
   `"${(m.description || "").replace(/"/g, '""')}"`,
   `"${new Date(m.created_at).toISOString().split("T")[0]}"`,
   m.screenshot_url
-    ? `=HYPERLINK("${(m.screenshot_url).replace(/"/g, '""')}","View")`
+    ? `"=HYPERLINK(""${(m.screenshot_url).replace(/"/g, '""')}"",""View"")"`
     : `""`
 ]);
 
