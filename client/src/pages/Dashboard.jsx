@@ -159,15 +159,16 @@ export default function Dashboard() {
       return;
     }
 
-    const headers = ["Claim ID", "Employee Name", "Mistake Type", "Description", "Created Date"];
+    const headers = ["Claim ID", "Employee Name", "Mistake Type", "Description", "Created Date", "Screenshot URL"];
 
     const rows = filteredData.map(m => [
-      `="${String(m.claim_id)}"`, // Forces Excel to treat as String formula
-      `"${m.employee_name}"`,
-      `"${m.mistake_type}"`,
-      `"${m.description}"`,
-      `"${new Date(m.created_at).toISOString().split("T")[0]}"`
-    ]);
+  `="${String(m.claim_id)}"`,
+  `"${m.employee_name}"`,
+  `"${m.mistake_type}"`,
+  `"${m.description}"`,
+  `"${new Date(m.created_at).toISOString().split("T")[0]}"`,
+  `"${m.screenshot_url || ""}"` // ✅ ADD THIS (safe fallback)
+]);
 
     const csvContent = [headers, ...rows]
       .map(e => e.join(","))

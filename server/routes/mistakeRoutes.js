@@ -73,9 +73,7 @@ router.post(
         screenshot_url = `${process.env.SUPABASE_URL}/storage/v1/object/public/screenshots/${fileName}`;
       }
 
-      // =======================
-      // INSERT INTO DATABASE
-      // =======================
+      // INSERT INTO DATABASE// 
 
       await db.query(
         `INSERT INTO mistakes 
