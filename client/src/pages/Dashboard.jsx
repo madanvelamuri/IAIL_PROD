@@ -161,14 +161,14 @@ export default function Dashboard() {
 
     const headers = ["Claim ID", "Employee Name", "Mistake Type", "Description", "Created Date", "Screenshot URL"];
 
-    const rows = filteredData.map(m => [
+   const rows = filteredData.map(m => [
   `="${String(m.claim_id)}"`,
   `"${(m.employee_name || "").replace(/"/g, '""')}"`,
   `"${(m.mistake_type || "").replace(/"/g, '""')}"`,
   `"${(m.description || "").replace(/"/g, '""')}"`,
   `"${new Date(m.created_at).toISOString().split("T")[0]}"`,
   m.screenshot_url
-    ? `=HYPERLINK("${(m.screenshot_url).replace(/"/g, '""')}", "View")`
+    ? `=HYPERLINK("${(m.screenshot_url).replace(/"/g, '""')}","View")`
     : `""`
 ]);
 
