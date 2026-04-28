@@ -87,7 +87,7 @@ export default function Login() {
     <div
   className="relative flex items-center justify-center min-h-screen overflow-hidden"
   style={{
-    backgroundImage: "linear-gradient(rgba(15,23,42,0.75), rgba(15,23,42,0.75)), url('https://apaiail.iassistcare.com/iail/static/assets/img/login-banner.png')",
+    backgroundImage: "linear-gradient(rgba(15,23,42,0.75), rgba(15,23,42,0.75)), url('https://chatgpt.com/s/m_69f0710adfbc81918cba08c8a0c3151b')",
     backgroundSize: "cover",
     backgroundPosition: "center",
     backgroundRepeat: "no-repeat"
