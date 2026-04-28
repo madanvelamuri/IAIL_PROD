@@ -87,7 +87,7 @@ export default function Login() {
     <div
   className="relative flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-black overflow-hidden"
   style={{
-    backgroundImage: "url('https://apaiail.iassistcare.com/iail/static/assets/img/login-banner.png')",
+    backgroundImage: "url('https://tse4.mm.bing.net/th/id/OIP.i-h_3Myz5w8vUsqAIZhbMAAAAA?rs=1&pid=ImgDetMain&o=7&rm=3')",
     backgroundSize: "cover",
     backgroundPosition: "center",
     backgroundRepeat: "no-repeat"
