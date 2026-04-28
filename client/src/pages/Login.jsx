@@ -87,7 +87,7 @@ export default function Login() {
     <div
   className="relative flex items-center justify-center min-h-screen overflow-hidden"
   style={{
-    backgroundImage: "linear-gradient(rgba(15,23,42,0.75), rgba(15,23,42,0.75)), url('https://chatgpt.com/s/m_69f0710adfbc81918cba08c8a0c3151b')",
+    backgroundImage: "linear-gradient(rgba(15,23,42,0.75), rgba(15,23,42,0.75)), url('https://chatgpt.com/backend-api/estuary/public_content/enc/eyJpZCI6Im1fNjlmMDcxMGFkZmJjODE5MThjYmEwOGM4YTBjMzE1MWI6ZmlsZV8wMDAwMDAwMDMxYmM3MWZhYWRmODVlYzUxMzAzOWM4MSIsInRzIjoiMjA1NzEiLCJwIjoicHlpIiwiY2lkIjoiMSIsInNpZyI6ImFiMmM1MGRiYzI5MGNjYmM4NDI1NWFlODA3ODhkMjYwOGM3NzY4YTJjYjBlZDY5OTViOGFjODc0MDBiYWI4YjkiLCJ2IjoiMCIsImdpem1vX2lkIjpudWxsLCJjcyI6bnVsbCwiY2RuIjpudWxsLCJjcCI6bnVsbCwibWEiOm51bGx9')",
     backgroundSize: "cover",
     backgroundPosition: "center",
     backgroundRepeat: "no-repeat"
