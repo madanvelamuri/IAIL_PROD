@@ -84,7 +84,15 @@ export default function Login() {
   };
 
   return (
-    <div className="relative flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-black overflow-hidden">
+    <div
+  className="relative flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-black overflow-hidden"
+  style={{
+    backgroundImage: "url('https://apaiail.iassistcare.com/iail/static/assets/img/login-banner.png')",
+    backgroundSize: "cover",
+    backgroundPosition: "center",
+    backgroundRepeat: "no-repeat"
+  }}
+>
 
       <StarBackground />
 
