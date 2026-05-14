@@ -46,7 +46,7 @@ export default function AddMistake() {
     "Dental Details Not Mentioned","Benefit Details Incorrect",
     "Revenue Description Incorrect",
     "Deduction Incorrectly Done or Not Deducted",
-    "Deduction Done with Incorrect Reason","ICD Incorrect",
+    "Deduction Done with Incorrect Reason","ICD Incorrect","Secondary ICD-10 Code",
   ];
 
   const filteredEmployees = employeeOptions.filter((option) =>
