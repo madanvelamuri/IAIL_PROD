@@ -221,145 +221,163 @@ export default function AddMistake() {
             required
           />
 
-          {/* Employee */}
-          <div className="relative" ref={employeeRef}>
+         {/* Employee */}
+<div className="relative" ref={employeeRef}>
 
-            <div className="flex gap-3">
+  <div className="flex gap-3 items-stretch">
 
-              <input
-                type="text"
-                placeholder="Employee Name"
-                value={form.employee_name}
-                onChange={(e) => {
-                  setForm({ ...form, employee_name: e.target.value });
-                  setShowEmployeeSuggestions(true);
-                }}
-                onFocus={() => setShowEmployeeSuggestions(true)}
-                className="w-full bg-white/10 border border-white/20 rounded-2xl px-5 py-4 text-white placeholder-white/50 focus:ring-2 focus:ring-cyan-400 outline-none transition"
-                required
-              />
+    <input
+      type="text"
+      placeholder="Employee Name"
+      value={form.employee_name}
+      onChange={(e) => {
+        setForm({ ...form, employee_name: e.target.value });
+        setShowEmployeeSuggestions(true);
+      }}
+      onFocus={() => setShowEmployeeSuggestions(true)}
+      className="flex-1 bg-white/10 border border-white/20 rounded-2xl px-5 py-4 text-white placeholder-white/50 focus:ring-2 focus:ring-cyan-400 outline-none transition"
+      required
+    />
 
-              <button
-                type="button"
-                onClick={() => {
+    <button
+      type="button"
+      onClick={() => {
 
-                  if (
-                    form.employee_name.trim() &&
-                    !employeeOptionsList.includes(form.employee_name.trim())
-                  ) {
+        const newEmployee = form.employee_name.trim();
 
-                    setEmployeeOptionsList([
-                      ...employeeOptionsList,
-                      form.employee_name.trim(),
-                    ]);
+        if (
+          newEmployee &&
+          !employeeOptionsList.includes(newEmployee)
+        ) {
 
-                  }
+          const updatedEmployees = [
+            ...employeeOptionsList,
+            newEmployee
+          ];
 
-                  setShowEmployeeSuggestions(true);
+          setEmployeeOptionsList(updatedEmployees);
 
-                }}
-                className="px-5 rounded-2xl bg-cyan-500 text-slate-900 font-bold hover:bg-cyan-400 transition"
-              >
-                Add Employee
-              </button>
+          setForm({
+            ...form,
+            employee_name: newEmployee
+          });
 
-            </div>
+        }
 
-            {showEmployeeSuggestions && filteredEmployees.length > 0 && (
+        setShowEmployeeSuggestions(true);
 
-              <div className="absolute z-50 mt-3 w-full bg-slate-900/95 border border-white/10 rounded-2xl shadow-xl max-h-52 overflow-y-auto">
+      }}
+      className="min-w-[170px] px-5 rounded-2xl bg-cyan-500 text-slate-900 font-bold hover:bg-cyan-400 transition-all duration-300"
+    >
+      Add New Employee Details
+    </button>
 
-                {filteredEmployees.map((option, index) => (
+  </div>
 
-                  <div
-                    key={index}
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      setForm({ ...form, employee_name: option });
-                      setShowEmployeeSuggestions(false);
-                    }}
-                    className="px-5 py-3 hover:bg-cyan-500/20 cursor-pointer transition"
-                  >
-                    {option}
-                  </div>
+  {showEmployeeSuggestions && filteredEmployees.length > 0 && (
 
-                ))}
+    <div className="absolute z-50 mt-3 w-full bg-slate-900/95 border border-white/10 rounded-2xl shadow-xl max-h-52 overflow-y-auto">
 
-              </div>
+      {filteredEmployees.map((option, index) => (
 
-            )}
+        <div
+          key={index}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            setForm({ ...form, employee_name: option });
+            setShowEmployeeSuggestions(false);
+          }}
+          className="px-5 py-3 hover:bg-cyan-500/20 cursor-pointer transition"
+        >
+          {option}
+        </div>
 
-          </div>
+      ))}
 
-          {/* Mistake Type */}
-          <div className="relative" ref={mistakeRef}>
+    </div>
 
-            <div className="flex gap-3">
+  )}
 
-              <input
-                type="text"
-                placeholder="Mistake Type"
-                value={form.mistake_type}
-                onChange={(e) => {
-                  setForm({ ...form, mistake_type: e.target.value });
-                  setShowMistakeSuggestions(true);
-                }}
-                onFocus={() => setShowMistakeSuggestions(true)}
-                className="w-full bg-white/10 border border-white/20 rounded-2xl px-5 py-4 text-white placeholder-white/50 focus:ring-2 focus:ring-cyan-400 outline-none transition"
-                required
-              />
+</div>
 
-              <button
-                type="button"
-                onClick={() => {
+         {/* Mistake Type */}
+<div className="relative" ref={mistakeRef}>
 
-                  if (
-                    form.mistake_type.trim() &&
-                    !mistakeOptionsList.includes(form.mistake_type.trim())
-                  ) {
+  <div className="flex gap-3 items-stretch">
 
-                    setMistakeOptionsList([
-                      ...mistakeOptionsList,
-                      form.mistake_type.trim(),
-                    ]);
+    <input
+      type="text"
+      placeholder="Mistake Type"
+      value={form.mistake_type}
+      onChange={(e) => {
+        setForm({ ...form, mistake_type: e.target.value });
+        setShowMistakeSuggestions(true);
+      }}
+      onFocus={() => setShowMistakeSuggestions(true)}
+      className="flex-1 bg-white/10 border border-white/20 rounded-2xl px-5 py-4 text-white placeholder-white/50 focus:ring-2 focus:ring-cyan-400 outline-none transition"
+      required
+    />
 
-                  }
+    <button
+      type="button"
+      onClick={() => {
 
-                  setShowMistakeSuggestions(true);
+        const newMistake = form.mistake_type.trim();
 
-                }}
-                className="px-5 rounded-2xl bg-teal-500 text-slate-900 font-bold hover:bg-teal-400 transition"
-              >
-                Add Mistake
-              </button>
+        if (
+          newMistake &&
+          !mistakeOptionsList.includes(newMistake)
+        ) {
 
-            </div>
+          const updatedMistakes = [
+            ...mistakeOptionsList,
+            newMistake
+          ];
 
-            {showMistakeSuggestions && filteredMistakes.length > 0 && (
+          setMistakeOptionsList(updatedMistakes);
 
-              <div className="absolute z-50 mt-3 w-full bg-slate-900/95 border border-white/10 rounded-2xl shadow-xl max-h-52 overflow-y-auto">
+          setForm({
+            ...form,
+            mistake_type: newMistake
+          });
 
-                {filteredMistakes.map((option, index) => (
+        }
 
-                  <div
-                    key={index}
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      setForm({ ...form, mistake_type: option });
-                      setShowMistakeSuggestions(false);
-                    }}
-                    className="px-5 py-3 hover:bg-cyan-500/20 cursor-pointer transition"
-                  >
-                    {option}
-                  </div>
+        setShowMistakeSuggestions(true);
 
-                ))}
+      }}
+      className="min-w-[170px] px-5 rounded-2xl bg-teal-500 text-slate-900 font-bold hover:bg-teal-400 transition-all duration-300"
+    >
+      Add New Mistake Type
+    </button>
 
-              </div>
+  </div>
 
-            )}
+  {showMistakeSuggestions && filteredMistakes.length > 0 && (
 
-          </div>
+    <div className="absolute z-50 mt-3 w-full bg-slate-900/95 border border-white/10 rounded-2xl shadow-xl max-h-52 overflow-y-auto">
+
+      {filteredMistakes.map((option, index) => (
+
+        <div
+          key={index}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            setForm({ ...form, mistake_type: option });
+            setShowMistakeSuggestions(false);
+          }}
+          className="px-5 py-3 hover:bg-cyan-500/20 cursor-pointer transition"
+        >
+          {option}
+        </div>
+
+      ))}
+
+    </div>
+
+  )}
+
+</div>
 
           {/* Claim Type */}
           <div className="flex items-center gap-6 bg-white/5 border border-white/10 rounded-2xl p-5">
