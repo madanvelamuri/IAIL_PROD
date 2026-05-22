@@ -4,25 +4,6 @@ import Swal from "sweetalert2";
 
 export default function AddMistake() {
 
-  const [form, setForm] = useState({
-    claim_id: "",
-    employee_name: "",
-    mistake_type: "",
-    description: "",
-    screenshot: null,
-    is_verification: false,
-  });
-
-  const [preview, setPreview] = useState(null);
-  const [message, setMessage] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  const [showEmployeeSuggestions, setShowEmployeeSuggestions] = useState(false);
-  const [showMistakeSuggestions, setShowMistakeSuggestions] = useState(false);
-
-  const employeeRef = useRef(null);
-  const mistakeRef = useRef(null);
-
   const employeeOptions = [
     "anil.putturu","braja.behera","divya.pandluru","feba.verifier",
     "harshitha.botsa","hashrita.suthapalli","aryan.kumar",
@@ -49,28 +30,55 @@ export default function AddMistake() {
     "Deduction Done with Incorrect Reason","ICD Incorrect","Secondary ICD-10 Code",
   ];
 
-  const filteredEmployees = employeeOptions.filter((option) =>
+  const [form, setForm] = useState({
+    claim_id: "",
+    employee_name: "",
+    mistake_type: "",
+    description: "",
+    screenshot: null,
+    is_verification: false,
+  });
+
+  const [employeeOptionsList, setEmployeeOptionsList] = useState(employeeOptions);
+  const [mistakeOptionsList, setMistakeOptionsList] = useState(mistakeOptions);
+
+  const [preview, setPreview] = useState(null);
+  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const [showEmployeeSuggestions, setShowEmployeeSuggestions] = useState(false);
+  const [showMistakeSuggestions, setShowMistakeSuggestions] = useState(false);
+
+  const employeeRef = useRef(null);
+  const mistakeRef = useRef(null);
+
+  const filteredEmployees = employeeOptionsList.filter((option) =>
     option.toLowerCase().includes(form.employee_name.toLowerCase())
   );
 
-  const filteredMistakes = mistakeOptions.filter((option) =>
+  const filteredMistakes = mistakeOptionsList.filter((option) =>
     option.toLowerCase().includes(form.mistake_type.toLowerCase())
   );
 
   useEffect(() => {
     const handleClickOutside = (event) => {
+
       if (employeeRef.current && !employeeRef.current.contains(event.target)) {
         setShowEmployeeSuggestions(false);
       }
+
       if (mistakeRef.current && !mistakeRef.current.contains(event.target)) {
         setShowMistakeSuggestions(false);
       }
+
     };
 
     document.addEventListener("mousedown", handleClickOutside);
+
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
+
   }, []);
 
   /* PASTE SCREENSHOT FEATURE */
@@ -113,6 +121,7 @@ export default function AddMistake() {
   }, []);
 
   useEffect(() => {
+
     if (message) {
 
       Swal.fire({
@@ -129,8 +138,11 @@ export default function AddMistake() {
       });
 
       const timer = setTimeout(() => setMessage(""), 3000);
+
       return () => clearTimeout(timer);
+
     }
+
   }, [message]);
 
   const handleSubmit = async (e) => {
@@ -175,8 +187,10 @@ export default function AddMistake() {
       setPreview(null);
 
     } catch (err) {
+
       console.error(err);
       setMessage("Error submitting mistake.");
+
     }
 
     setLoading(false);
@@ -184,6 +198,7 @@ export default function AddMistake() {
   };
 
   return (
+
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-6">
 
       <div className="w-full max-w-3xl backdrop-blur-2xl bg-white/5 border border-white/10 rounded-3xl p-12 shadow-[0_20px_60px_rgba(0,0,0,0.6)] text-white">
@@ -208,22 +223,54 @@ export default function AddMistake() {
 
           {/* Employee */}
           <div className="relative" ref={employeeRef}>
-            <input
-              type="text"
-              placeholder="Employee Name"
-              value={form.employee_name}
-              onChange={(e) => {
-                setForm({ ...form, employee_name: e.target.value });
-                setShowEmployeeSuggestions(true);
-              }}
-              onFocus={() => setShowEmployeeSuggestions(true)}
-              className="w-full bg-white/10 border border-white/20 rounded-2xl px-5 py-4 text-white placeholder-white/50 focus:ring-2 focus:ring-cyan-400 outline-none transition"
-              required
-            />
+
+            <div className="flex gap-3">
+
+              <input
+                type="text"
+                placeholder="Employee Name"
+                value={form.employee_name}
+                onChange={(e) => {
+                  setForm({ ...form, employee_name: e.target.value });
+                  setShowEmployeeSuggestions(true);
+                }}
+                onFocus={() => setShowEmployeeSuggestions(true)}
+                className="w-full bg-white/10 border border-white/20 rounded-2xl px-5 py-4 text-white placeholder-white/50 focus:ring-2 focus:ring-cyan-400 outline-none transition"
+                required
+              />
+
+              <button
+                type="button"
+                onClick={() => {
+
+                  if (
+                    form.employee_name.trim() &&
+                    !employeeOptionsList.includes(form.employee_name.trim())
+                  ) {
+
+                    setEmployeeOptionsList([
+                      ...employeeOptionsList,
+                      form.employee_name.trim(),
+                    ]);
+
+                  }
+
+                  setShowEmployeeSuggestions(true);
+
+                }}
+                className="px-5 rounded-2xl bg-cyan-500 text-slate-900 font-bold hover:bg-cyan-400 transition"
+              >
+                Add Employee
+              </button>
+
+            </div>
 
             {showEmployeeSuggestions && filteredEmployees.length > 0 && (
+
               <div className="absolute z-50 mt-3 w-full bg-slate-900/95 border border-white/10 rounded-2xl shadow-xl max-h-52 overflow-y-auto">
+
                 {filteredEmployees.map((option, index) => (
+
                   <div
                     key={index}
                     onMouseDown={(e) => {
@@ -235,29 +282,65 @@ export default function AddMistake() {
                   >
                     {option}
                   </div>
+
                 ))}
+
               </div>
+
             )}
+
           </div>
 
           {/* Mistake Type */}
           <div className="relative" ref={mistakeRef}>
-            <input
-              type="text"
-              placeholder="Mistake Type"
-              value={form.mistake_type}
-              onChange={(e) => {
-                setForm({ ...form, mistake_type: e.target.value });
-                setShowMistakeSuggestions(true);
-              }}
-              onFocus={() => setShowMistakeSuggestions(true)}
-              className="w-full bg-white/10 border border-white/20 rounded-2xl px-5 py-4 text-white placeholder-white/50 focus:ring-2 focus:ring-cyan-400 outline-none transition"
-              required
-            />
+
+            <div className="flex gap-3">
+
+              <input
+                type="text"
+                placeholder="Mistake Type"
+                value={form.mistake_type}
+                onChange={(e) => {
+                  setForm({ ...form, mistake_type: e.target.value });
+                  setShowMistakeSuggestions(true);
+                }}
+                onFocus={() => setShowMistakeSuggestions(true)}
+                className="w-full bg-white/10 border border-white/20 rounded-2xl px-5 py-4 text-white placeholder-white/50 focus:ring-2 focus:ring-cyan-400 outline-none transition"
+                required
+              />
+
+              <button
+                type="button"
+                onClick={() => {
+
+                  if (
+                    form.mistake_type.trim() &&
+                    !mistakeOptionsList.includes(form.mistake_type.trim())
+                  ) {
+
+                    setMistakeOptionsList([
+                      ...mistakeOptionsList,
+                      form.mistake_type.trim(),
+                    ]);
+
+                  }
+
+                  setShowMistakeSuggestions(true);
+
+                }}
+                className="px-5 rounded-2xl bg-teal-500 text-slate-900 font-bold hover:bg-teal-400 transition"
+              >
+                Add Mistake
+              </button>
+
+            </div>
 
             {showMistakeSuggestions && filteredMistakes.length > 0 && (
+
               <div className="absolute z-50 mt-3 w-full bg-slate-900/95 border border-white/10 rounded-2xl shadow-xl max-h-52 overflow-y-auto">
+
                 {filteredMistakes.map((option, index) => (
+
                   <div
                     key={index}
                     onMouseDown={(e) => {
@@ -269,25 +352,40 @@ export default function AddMistake() {
                   >
                     {option}
                   </div>
+
                 ))}
+
               </div>
+
             )}
+
           </div>
 
           {/* Claim Type */}
           <div className="flex items-center gap-6 bg-white/5 border border-white/10 rounded-2xl p-5">
+
             <span className="text-sm text-white/70">Claim Type:</span>
+
             <label className="flex items-center gap-2 cursor-pointer group">
+
               <input
                 type="checkbox"
                 checked={form.is_verification}
-                onChange={(e) => setForm({ ...form, is_verification: e.target.checked })}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    is_verification: e.target.checked
+                  })
+                }
                 className="w-5 h-5 accent-cyan-500 bg-white/10 border-white/20 rounded cursor-pointer"
               />
+
               <span className={`text-sm transition ${form.is_verification ? 'text-cyan-400 font-bold' : 'text-white/60'}`}>
                 Verification Claim (Mandatory Screenshot)
               </span>
+
             </label>
+
           </div>
 
           {/* Description */}
@@ -312,50 +410,52 @@ export default function AddMistake() {
             <input
               type="file"
               onChange={(e) => {
+
                 const file = e.target.files[0];
+
                 setForm({ ...form, screenshot: file });
 
                 if (file) {
                   setPreview(URL.createObjectURL(file));
                 }
+
               }}
               className="block w-full text-sm text-white file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-cyan-500 file:text-slate-900 file:font-semibold hover:file:bg-cyan-600 transition"
             />
 
             {preview && (
-  <div className="mt-4 flex items-center gap-4">
 
-    {/* URL display */}
-    <input
-      type="text"
-      value={preview}
-      readOnly
-      className="flex-1 bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-xs text-white"
-    />
+              <div className="mt-4 flex items-center gap-4">
 
-    {/* View Image */}
-    <button
-      type="button"
-      onClick={() => window.open(preview, "_blank")}
-      className="bg-blue-500 text-white px-3 py-1 rounded-lg text-xs hover:bg-blue-600"
-    >
-      View Image
-    </button>
+                <input
+                  type="text"
+                  value={preview}
+                  readOnly
+                  className="flex-1 bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-xs text-white"
+                />
 
-    {/* Remove */}
-    <button
-      type="button"
-      onClick={() => {
-        setPreview(null);
-        setForm({ ...form, screenshot: null });
-      }}
-      className="bg-red-500 text-white px-3 py-1 rounded-lg text-xs"
-    >
-      Remove
-    </button>
+                <button
+                  type="button"
+                  onClick={() => window.open(preview, "_blank")}
+                  className="bg-blue-500 text-white px-3 py-1 rounded-lg text-xs hover:bg-blue-600"
+                >
+                  View Image
+                </button>
 
-  </div>
-)}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPreview(null);
+                    setForm({ ...form, screenshot: null });
+                  }}
+                  className="bg-red-500 text-white px-3 py-1 rounded-lg text-xs"
+                >
+                  Remove
+                </button>
+
+              </div>
+
+            )}
 
           </div>
 
@@ -365,14 +465,21 @@ export default function AddMistake() {
             disabled={loading}
             className="w-full flex items-center justify-center gap-3 bg-gradient-to-r from-cyan-400 to-teal-500 text-slate-900 font-bold py-4 rounded-2xl hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 shadow-lg disabled:opacity-70"
           >
+
             {loading && (
               <span className="w-5 h-5 border-2 border-slate-900 border-t-transparent rounded-full animate-spin"></span>
             )}
+
             {loading ? "Submitting..." : "Submit Mistake"}
+
           </button>
 
         </form>
+
       </div>
+
     </div>
+
   );
+
 }
