@@ -152,47 +152,57 @@ export default function Dashboard() {
     }
   };
 
-  // ✅ FIXED EXPORT: Prevents scientific notation in Excel
+  // ✅ FIXED EXPORT: Handles Excel date columns and text formatting perfectly
   const handleExportCSV = () => {
-  if (filteredData.length === 0) {
-    alert("No data to export");
-    return;
-  }
+    if (filteredData.length === 0) {
+      alert("No data to export");
+      return;
+    }
 
-  const headers = ["Claim ID", "Employee Name", "Mistake Type", "Description", "Created Date", "Screenshot URL"];
+    const headers = ["Claim ID", "Employee Name", "Mistake Type", "Description", "Created Date", "Screenshot URL"];
 
-  const rows = filteredData.map(m => [
-    `="${String(m.claim_id || '')}"`,
-    `"${(m.employee_name || "").replace(/"/g, '""')}"`,
-    `"${(m.mistake_type || "").replace(/"/g, '""')}"`,
-    `"${(m.description || "").replace(/"/g, '""')}"`,
-    `"${m.created_at ? new Date(m.created_at).toISOString().slice(0, 10) : ''}"`,
-    m.screenshot_url
-      ? `"=HYPERLINK(""${(m.screenshot_url).replace(/"/g, '""')}"",""View"")"`
-      : `""`
-  ]);
+    const rows = filteredData.map(m => {
+      let formattedDate = "";
+      if (m.created_at) {
+        const d = new Date(m.created_at);
+        if (!isNaN(d.getTime())) {
+          formattedDate = d.toISOString().split("T")[0];
+        }
+      }
 
-  const csvContent = [headers, ...rows]
-    .map(e => e.join(","))
-    .join("\n");
+      return [
+        `="${String(m.claim_id || '')}"`,
+        `"${(m.employee_name || "").replace(/"/g, '""')}"`,
+        `"${(m.mistake_type || "").replace(/"/g, '""')}"`,
+        `"${(m.description || "").replace(/"/g, '""')}"`,
+        `"${formattedDate}"`,
+        m.screenshot_url
+          ? `"=HYPERLINK(""${(m.screenshot_url).replace(/"/g, '""')}"",""View"")"`
+          : `""`
+      ];
+    });
 
-  const blob = new Blob(["\uFEFF" + csvContent], {
-    type: "text/csv;charset=utf-8;"
-  });
+    const csvContent = [headers, ...rows]
+      .map(e => e.join(","))
+      .join("\n");
 
-  const link = document.createElement("a");
-  const url = URL.createObjectURL(blob);
+    const blob = new Blob(["\uFEFF" + csvContent], {
+      type: "text/csv;charset=utf-8;"
+    });
 
-  link.setAttribute("href", url);
-  link.setAttribute(
-    "download",
-    `mistakes_report_${new Date().toISOString().split("T")[0]}.csv`
-  );
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
 
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-};
+    link.setAttribute("href", url);
+    link.setAttribute(
+      "download",
+      `mistakes_report_${new Date().toISOString().split("T")[0]}.csv`
+    );
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   /* Zoom & Drag Handlers */
   const handleZoomIn = () => setScale(prev => Math.min(prev + 0.5, 4));
