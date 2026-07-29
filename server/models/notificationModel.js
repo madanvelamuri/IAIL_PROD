@@ -1,6 +1,5 @@
 const db = require('../config/db');
 
-// Helper functions to promisify SQLite query execution
 const dbGet = (sql, params = []) => new Promise((resolve, reject) => {
   db.get(sql, params, (err, row) => err ? reject(err) : resolve(row));
 });
@@ -16,7 +15,7 @@ const dbRun = (sql, params = []) => new Promise((resolve, reject) => {
 });
 
 const NotificationModel = {
-  // Initialize database schema tables
+  // Initialize SQLite tables
   initTables: () => {
     const createLogsTable = `
       CREATE TABLE IF NOT EXISTS teams_notifications (
@@ -26,7 +25,7 @@ const NotificationModel = {
         mistake_type TEXT NOT NULL,
         description TEXT,
         created_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-        teams_group TEXT NOT NULL,
+        teams_group TEXT DEFAULT 'QC Team',
         status TEXT CHECK(status IN ('Sent', 'Failed', 'Pending')) DEFAULT 'Pending',
         sent_at DATETIME,
         error_message TEXT
@@ -46,7 +45,6 @@ const NotificationModel = {
     db.run(createConfigTable);
   },
 
-  // Fetch paginated & filtered notification records
   getNotifications: async ({ fromDate, toDate, employee, teamsGroup, status, search, limit, offset }) => {
     let baseQuery = `FROM teams_notifications WHERE 1=1`;
     const params = [];
@@ -87,7 +85,6 @@ const NotificationModel = {
     return { rows, total };
   },
 
-  // Fetch active webhook URL configuration by team group
   getWebhookConfig: async (teamsGroup) => {
     return await dbGet(
       `SELECT webhook_url FROM teams_configs WHERE group_name = ? AND is_active = 1`, 
@@ -95,7 +92,6 @@ const NotificationModel = {
     );
   },
 
-  // Update notification execution state
   updateStatus: async (id, status, errorMessage = null) => {
     const now = new Date().toISOString();
     return await dbRun(
@@ -104,18 +100,39 @@ const NotificationModel = {
     );
   },
 
-  // Retrieve all configured webhooks
   getAllSettings: async () => {
     return await dbAll(`SELECT * FROM teams_configs`);
   },
 
-  // Save or update webhook config
   saveSettings: async (groupName, webhookUrl) => {
     return await dbRun(
       `INSERT INTO teams_configs (group_name, webhook_url) VALUES (?, ?) 
        ON CONFLICT(group_name) DO UPDATE SET webhook_url = excluded.webhook_url`,
       [groupName, webhookUrl]
     );
+  },
+
+  // Sync existing mistakes table into teams_notifications
+  syncDashboardData: async () => {
+    const syncSql = `
+      INSERT INTO teams_notifications (claim_id, employee_name, mistake_type, description, created_date, teams_group, status)
+      SELECT 
+        m.claim_id,
+        m.employee_name,
+        m.mistake_type,
+        m.description,
+        COALESCE(m.created_date, CURRENT_TIMESTAMP),
+        COALESCE(m.teams_group, 'QC Team'),
+        'Pending'
+      FROM mistakes m
+      WHERE NOT EXISTS (
+        SELECT 1 FROM teams_notifications tn 
+        WHERE tn.claim_id = m.claim_id 
+          AND tn.employee_name = m.employee_name 
+          AND tn.mistake_type = m.mistake_type
+      );
+    `;
+    return await dbRun(syncSql);
   }
 };
 

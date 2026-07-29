@@ -25,10 +25,10 @@ module.exports = function (req, res, next) {
     next();
   } catch (err) {
     // Differentiate token expiration vs invalid token signature for debugging logs
-    if (err.name === "TokenExpiredError") {
+    if (err?.name === "TokenExpiredError") {
       console.warn(`[Auth Middleware] Token expired at ${err.expiredAt}`);
     } else {
-      console.error(`[Auth Middleware] Verification failed: ${err.message}`);
+      console.error(`[Auth Middleware] Verification failed: ${err?.message}`);
     }
 
     return res.status(401).json({ message: "Invalid token" });

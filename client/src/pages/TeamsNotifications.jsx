@@ -3,7 +3,7 @@ import { Settings, Send, Search, RotateCcw, ArrowUpDown, User } from 'lucide-rea
 import StatusBadge from '../components/StatusBadge';
 import TeamsModal from '../components/TeamsModal';
 import TeamsSettings from '../components/TeamsSettings';
-import { getNotifications, resendNotification } from '../services/teamsService';
+import { getNotifications, resendNotification, syncDashboardNotifications } from '../services/teamsService';
 
 const TeamsNotifications = () => {
   const [notifications, setNotifications] = useState([]);
@@ -29,10 +29,13 @@ const TeamsNotifications = () => {
   const fetchLogs = async () => {
     setLoading(true);
     try {
+      // Sync latest dashboard data first to ensure reflection
+      await syncDashboardNotifications().catch(() => {});
+      
       const response = await getNotifications({
         fromDate,
         toDate,
-        employee: employee || 'All Employees',
+        employee,
         teamsGroup,
         status,
         search,
@@ -114,12 +117,11 @@ const TeamsNotifications = () => {
         </div>
       </div>
 
-      {/* Modern Search Filter Toolbar (Matches Screenshot) */}
+      {/* Modern Search Filter Toolbar */}
       <form
         onSubmit={handleSearch}
         className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100/80 mb-6 flex flex-wrap lg:flex-nowrap items-center gap-3"
       >
-        {/* From Date */}
         <div className="flex-1 min-w-[150px]">
           <input
             type="date"
@@ -129,7 +131,6 @@ const TeamsNotifications = () => {
           />
         </div>
 
-        {/* To Date */}
         <div className="flex-1 min-w-[150px]">
           <input
             type="date"
@@ -139,7 +140,6 @@ const TeamsNotifications = () => {
           />
         </div>
 
-        {/* Employee Name */}
         <div className="flex-1 min-w-[180px] relative">
           <User className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-purple-400" />
           <input
@@ -151,7 +151,6 @@ const TeamsNotifications = () => {
           />
         </div>
 
-        {/* Search / Mistake Type */}
         <div className="flex-1 min-w-[180px] relative">
           <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-purple-400" />
           <input
@@ -163,11 +162,10 @@ const TeamsNotifications = () => {
           />
         </div>
 
-        {/* Buttons */}
         <div className="flex items-center gap-2 min-w-[180px]">
           <button
             type="submit"
-            className="flex-1 flex items-center justify-center gap-2 px-5 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 active:scale-[0.98] transition shadow-sm"
+            className="flex-1 flex items-center justify-center gap-2 px-5 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition shadow-sm"
           >
             <Search className="w-4 h-4" />
             Search
