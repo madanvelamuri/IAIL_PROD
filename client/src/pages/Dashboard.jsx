@@ -36,7 +36,7 @@ export default function Dashboard() {
   const [showEmployeeTable, setShowEmployeeTable] = useState(true);
 
   /* Version State */
-  const CURRENT_VERSION = "1.3.0";
+  const CURRENT_VERSION = "1.3.1";
   const [showUpdate, setShowUpdate] = useState(false);
 
   /* Zoom State */
