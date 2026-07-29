@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Send, Search, RotateCcw, ArrowUpDown } from 'lucide-react';
+import { Settings, Send, Search, RotateCcw, ArrowUpDown, User } from 'lucide-react';
 import StatusBadge from '../components/StatusBadge';
 import TeamsModal from '../components/TeamsModal';
 import TeamsSettings from '../components/TeamsSettings';
@@ -8,19 +8,19 @@ import { getNotifications, resendNotification } from '../services/teamsService';
 const TeamsNotifications = () => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
-  
+
   // Filter States
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
-  const [employee, setEmployee] = useState('All Employees');
+  const [employee, setEmployee] = useState('');
   const [teamsGroup, setTeamsGroup] = useState('All Groups');
   const [status, setStatus] = useState('All');
   const [search, setSearch] = useState('');
 
   // Pagination States
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(12);
-  const [totalEntries, setTotalEntries] = useState(120);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalEntries, setTotalEntries] = useState(0);
 
   // Modals
   const [isTestModalOpen, setIsTestModalOpen] = useState(false);
@@ -32,7 +32,7 @@ const TeamsNotifications = () => {
       const response = await getNotifications({
         fromDate,
         toDate,
-        employee,
+        employee: employee || 'All Employees',
         teamsGroup,
         status,
         search,
@@ -62,7 +62,7 @@ const TeamsNotifications = () => {
   const handleReset = () => {
     setFromDate('');
     setToDate('');
-    setEmployee('All Employees');
+    setEmployee('');
     setTeamsGroup('All Groups');
     setStatus('All');
     setSearch('');
@@ -86,11 +86,11 @@ const TeamsNotifications = () => {
   };
 
   return (
-    <div className="p-6 bg-slate-50 min-h-screen">
+    <div className="p-6 bg-slate-100/60 min-h-screen">
       {/* Top Header */}
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold">
+          <div className="w-9 h-9 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-600 font-bold">
             <Send className="w-5 h-5" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900">Teams Notifications</h1>
@@ -99,14 +99,14 @@ const TeamsNotifications = () => {
         <div className="flex items-center gap-3">
           <button
             onClick={() => setIsSettingsOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 border border-gray-300 bg-white text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition shadow-sm"
+            className="flex items-center gap-2 px-4 py-2 border border-gray-200 bg-white text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-50 transition shadow-sm"
           >
             <Settings className="w-4 h-4" />
             Settings
           </button>
           <button
             onClick={() => setIsTestModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition shadow-sm"
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition shadow-sm"
           >
             <Send className="w-4 h-4" />
             Send Test Notification
@@ -114,94 +114,69 @@ const TeamsNotifications = () => {
         </div>
       </div>
 
-      {/* Filter Toolbar */}
-      <form onSubmit={handleSearch} className="bg-white p-4 rounded-xl shadow-sm mb-6 border border-gray-100 grid grid-cols-1 md:grid-cols-7 gap-3 items-end">
-        <div>
-          <label className="block text-xs font-semibold text-gray-500 mb-1">From Date</label>
+      {/* Modern Search Filter Toolbar (Matches Screenshot) */}
+      <form
+        onSubmit={handleSearch}
+        className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100/80 mb-6 flex flex-wrap lg:flex-nowrap items-center gap-3"
+      >
+        {/* From Date */}
+        <div className="flex-1 min-w-[150px]">
           <input
             type="date"
             value={fromDate}
             onChange={(e) => setFromDate(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+            className="w-full px-4 py-2 bg-slate-50/70 border border-gray-200/80 rounded-xl text-sm text-gray-600 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition"
           />
         </div>
 
-        <div>
-          <label className="block text-xs font-semibold text-gray-500 mb-1">To Date</label>
+        {/* To Date */}
+        <div className="flex-1 min-w-[150px]">
           <input
             type="date"
             value={toDate}
             onChange={(e) => setToDate(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+            className="w-full px-4 py-2 bg-slate-50/70 border border-gray-200/80 rounded-xl text-sm text-gray-600 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition"
           />
         </div>
 
-        <div>
-          <label className="block text-xs font-semibold text-gray-500 mb-1">Employee</label>
-          <select
+        {/* Employee Name */}
+        <div className="flex-1 min-w-[180px] relative">
+          <User className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-purple-400" />
+          <input
+            type="text"
+            placeholder="Employee Name"
             value={employee}
             onChange={(e) => setEmployee(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
-          >
-            <option value="All Employees">All Employees</option>
-            <option value="harshitha.botsa">harshitha.botsa</option>
-            <option value="durgabhavani.k">durgabhavani.k</option>
-            <option value="divya.pandluru">divya.pandluru</option>
-            <option value="rajesh.k">rajesh.k</option>
-          </select>
+            className="w-full pl-10 pr-4 py-2 bg-slate-50/70 border border-gray-200/80 rounded-xl text-sm text-gray-700 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition"
+          />
         </div>
 
-        <div>
-          <label className="block text-xs font-semibold text-gray-500 mb-1">Teams Group</label>
-          <select
-            value={teamsGroup}
-            onChange={(e) => setTeamsGroup(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
-          >
-            <option value="All Groups">All Groups</option>
-            <option value="QC Team">QC Team</option>
-            <option value="Audit Team">Audit Team</option>
-          </select>
+        {/* Search / Mistake Type */}
+        <div className="flex-1 min-w-[180px] relative">
+          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-purple-400" />
+          <input
+            type="text"
+            placeholder="Mistake Type"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 bg-slate-50/70 border border-gray-200/80 rounded-xl text-sm text-gray-700 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition"
+          />
         </div>
 
-        <div>
-          <label className="block text-xs font-semibold text-gray-500 mb-1">Status</label>
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
-          >
-            <option value="All">All</option>
-            <option value="Sent">Sent</option>
-            <option value="Failed">Failed</option>
-          </select>
-        </div>
-
-        <div>
-          <label className="block text-xs font-semibold text-gray-500 mb-1">&nbsp;</label>
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Search..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-3 pr-8 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-            />
-          </div>
-        </div>
-
-        <div className="flex gap-2">
+        {/* Buttons */}
+        <div className="flex items-center gap-2 min-w-[180px]">
           <button
             type="submit"
-            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition"
+            className="flex-1 flex items-center justify-center gap-2 px-5 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 active:scale-[0.98] transition shadow-sm"
           >
             <Search className="w-4 h-4" />
             Search
           </button>
+
           <button
             type="button"
             onClick={handleReset}
-            className="flex items-center justify-center gap-1 px-3 py-2 border border-gray-200 bg-white text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 transition"
+            className="flex items-center justify-center gap-1.5 px-4 py-2 bg-slate-100 text-gray-600 rounded-xl text-sm font-medium hover:bg-slate-200 transition"
           >
             <RotateCcw className="w-4 h-4" />
             Reset
@@ -210,51 +185,51 @@ const TeamsNotifications = () => {
       </form>
 
       {/* Main Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-sm">
             <thead>
-              <tr className="bg-slate-50 border-b border-gray-100 text-gray-500 font-semibold text-xs">
-                <th className="py-3 px-4 font-semibold">
-                  <div className="flex items-center gap-1">Claim ID <ArrowUpDown className="w-3 h-3" /></div>
+              <tr className="bg-slate-50/80 border-b border-gray-100 text-gray-500 font-semibold text-xs">
+                <th className="py-3.5 px-4 font-semibold">
+                  <div className="flex items-center gap-1">Claim ID <ArrowUpDown className="w-3 h-3 text-gray-400" /></div>
                 </th>
-                <th className="py-3 px-4 font-semibold">
-                  <div className="flex items-center gap-1">Employee Name <ArrowUpDown className="w-3 h-3" /></div>
+                <th className="py-3.5 px-4 font-semibold">
+                  <div className="flex items-center gap-1">Employee Name <ArrowUpDown className="w-3 h-3 text-gray-400" /></div>
                 </th>
-                <th className="py-3 px-4 font-semibold">
-                  <div className="flex items-center gap-1">Mistake Type <ArrowUpDown className="w-3 h-3" /></div>
+                <th className="py-3.5 px-4 font-semibold">
+                  <div className="flex items-center gap-1">Mistake Type <ArrowUpDown className="w-3 h-3 text-gray-400" /></div>
                 </th>
-                <th className="py-3 px-4 font-semibold">
-                  <div className="flex items-center gap-1">Description <ArrowUpDown className="w-3 h-3" /></div>
+                <th className="py-3.5 px-4 font-semibold">
+                  <div className="flex items-center gap-1">Description <ArrowUpDown className="w-3 h-3 text-gray-400" /></div>
                 </th>
-                <th className="py-3 px-4 font-semibold">
-                  <div className="flex items-center gap-1">Created Date <ArrowUpDown className="w-3 h-3" /></div>
+                <th className="py-3.5 px-4 font-semibold">
+                  <div className="flex items-center gap-1">Created Date <ArrowUpDown className="w-3 h-3 text-gray-400" /></div>
                 </th>
-                <th className="py-3 px-4 font-semibold">
-                  <div className="flex items-center gap-1">Teams Group <ArrowUpDown className="w-3 h-3" /></div>
+                <th className="py-3.5 px-4 font-semibold">
+                  <div className="flex items-center gap-1">Teams Group <ArrowUpDown className="w-3 h-3 text-gray-400" /></div>
                 </th>
-                <th className="py-3 px-4 font-semibold">
-                  <div className="flex items-center gap-1">Status <ArrowUpDown className="w-3 h-3" /></div>
+                <th className="py-3.5 px-4 font-semibold">
+                  <div className="flex items-center gap-1">Status <ArrowUpDown className="w-3 h-3 text-gray-400" /></div>
                 </th>
-                <th className="py-3 px-4 font-semibold">
-                  <div className="flex items-center gap-1">Sent At <ArrowUpDown className="w-3 h-3" /></div>
+                <th className="py-3.5 px-4 font-semibold">
+                  <div className="flex items-center gap-1">Sent At <ArrowUpDown className="w-3 h-3 text-gray-400" /></div>
                 </th>
-                <th className="py-3 px-4 font-semibold text-center">Action</th>
+                <th className="py-3.5 px-4 font-semibold text-center">Action</th>
               </tr>
             </thead>
 
             <tbody className="divide-y divide-gray-100 text-gray-700">
               {loading ? (
                 <tr>
-                  <td colSpan="9" className="text-center py-8 text-gray-400">Loading records...</td>
+                  <td colSpan="9" className="text-center py-10 text-gray-400">Loading records...</td>
                 </tr>
               ) : notifications.length === 0 ? (
                 <tr>
-                  <td colSpan="9" className="text-center py-8 text-gray-400">No notification logs found.</td>
+                  <td colSpan="9" className="text-center py-10 text-gray-400">No notification logs found.</td>
                 </tr>
               ) : (
                 notifications.map((row) => (
-                  <tr key={row.id} className="hover:bg-slate-50/50 transition">
+                  <tr key={row.id} className="hover:bg-slate-50/60 transition">
                     <td className="py-3.5 px-4 font-medium text-gray-900">{row.claim_id}</td>
                     <td className="py-3.5 px-4 text-gray-600">{row.employee_name}</td>
                     <td className="py-3.5 px-4">{row.mistake_type}</td>
@@ -269,7 +244,7 @@ const TeamsNotifications = () => {
                       {row.status === 'Failed' ? (
                         <button
                           onClick={() => handleResend(row)}
-                          className="px-3 py-1 bg-indigo-50 border border-indigo-200 text-indigo-600 hover:bg-indigo-100 rounded-lg text-xs font-medium transition"
+                          className="px-3 py-1 bg-blue-50 border border-blue-200 text-blue-600 hover:bg-blue-100 rounded-lg text-xs font-medium transition"
                         >
                           Send Again
                         </button>
@@ -284,52 +259,45 @@ const TeamsNotifications = () => {
           </table>
         </div>
 
-        {/* Footer & Pagination */}
-        <div className="p-4 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500">
+        {/* Footer & Dynamic Pagination */}
+        <div className="p-4 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-gray-500">
           <div>
-            Showing {((currentPage - 1) * 10) + 1} to {Math.min(currentPage * 10, totalEntries)} of {totalEntries} entries
+            Showing {totalEntries === 0 ? 0 : (currentPage - 1) * 10 + 1} to {Math.min(currentPage * 10, totalEntries)} of {totalEntries} entries
           </div>
 
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5">
             <button
               onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
               disabled={currentPage === 1}
-              className="px-3 py-1.5 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-40"
+              className="px-3 py-1.5 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-40 transition"
             >
               Previous
             </button>
 
-            {[1, 2, 3, 4, 5].map((page) => (
-              <button
-                key={page}
-                onClick={() => setCurrentPage(page)}
-                className={`px-3 py-1.5 rounded-lg font-medium ${
-                  currentPage === page
-                    ? 'bg-indigo-600 text-white'
-                    : 'border border-gray-200 text-gray-600 hover:bg-gray-50'
-                }`}
-              >
-                {page}
-              </button>
-            ))}
-
-            <span className="px-1 text-gray-400">...</span>
-
-            <button
-              onClick={() => setCurrentPage(totalPages)}
-              className={`px-3 py-1.5 rounded-lg font-medium ${
-                currentPage === totalPages
-                  ? 'bg-indigo-600 text-white'
-                  : 'border border-gray-200 text-gray-600 hover:bg-gray-50'
-              }`}
-            >
-              {totalPages}
-            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter((page) => page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1)
+              .map((page, idx, array) => (
+                <React.Fragment key={page}>
+                  {idx > 0 && array[idx - 1] !== page - 1 && (
+                    <span className="px-1 text-gray-400">...</span>
+                  )}
+                  <button
+                    onClick={() => setCurrentPage(page)}
+                    className={`px-3 py-1.5 rounded-lg font-medium transition ${
+                      currentPage === page
+                        ? 'bg-blue-600 text-white'
+                        : 'border border-gray-200 text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                </React.Fragment>
+              ))}
 
             <button
               onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
-              disabled={currentPage === totalPages}
-              className="px-3 py-1.5 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-40"
+              disabled={currentPage === totalPages || totalPages === 0}
+              className="px-3 py-1.5 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-40 transition"
             >
               Next
             </button>
