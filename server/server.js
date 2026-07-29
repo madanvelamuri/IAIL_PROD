@@ -6,6 +6,7 @@ const path = require("path");
 
 const authRoutes = require("./routes/authRoutes");
 const mistakeRoutes = require("./routes/mistakeRoutes");
+const teamsRoutes = require("./routes/teamsRoutes"); // Added Teams routes module
 
 const app = express();
 
@@ -25,6 +26,7 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 app.use("/api/auth", authRoutes);
 app.use("/api/mistakes", mistakeRoutes);
+app.use("/api/teams", teamsRoutes); // Added Teams API route group
 
 
 // HEALTH CHECK ROUTE // 
