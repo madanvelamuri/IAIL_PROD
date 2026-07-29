@@ -6,6 +6,7 @@ import Dashboard from "./pages/Dashboard";
 import AddMistake from "./pages/AddMistake";
 import ProLayout from "./components/ProLayout";
 import Register from "./pages/Register";
+import TeamsNotifications from "./pages/TeamsNotifications"; // ⭐ NEW IMPORT
 
 function App() {
   const token = localStorage.getItem("token");
@@ -51,6 +52,20 @@ function App() {
             token ? (
               <ProLayout>
                 <AddMistake />
+              </ProLayout>
+            ) : (
+              <Navigate to="/" />
+            )
+          }
+        />
+
+        {/* ⭐ TEAMS NOTIFICATIONS (PROTECTED) */}
+        <Route
+          path="/teams-notifications"
+          element={
+            token ? (
+              <ProLayout>
+                <TeamsNotifications />
               </ProLayout>
             ) : (
               <Navigate to="/" />

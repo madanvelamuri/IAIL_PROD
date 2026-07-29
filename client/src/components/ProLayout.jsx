@@ -36,6 +36,14 @@ export default function ProLayout({ children }) {
           >
             Add Mistake
           </Link>
+
+          {/* ⭐ TEAMS NOTIFICATIONS LINK */}
+          <Link
+            to="/teams-notifications"
+            className="block px-4 py-2 rounded-lg hover:bg-slate-700 transition"
+          >
+            Teams Notifications
+          </Link>
         </nav>
 
         <div className="p-4 border-t border-slate-700">
