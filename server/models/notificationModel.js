@@ -10,10 +10,10 @@ const NotificationModel = {
         employee_name VARCHAR(255) NOT NULL,
         mistake_type VARCHAR(255) NOT NULL,
         description TEXT,
-        created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        created_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         teams_group VARCHAR(255) DEFAULT 'QC Team',
         status VARCHAR(50) CHECK (status IN ('Sent', 'Failed', 'Pending')) DEFAULT 'Pending',
-        sent_at TIMESTAMP,
+        sent_at TIMESTAMP WITH TIME ZONE,
         error_message TEXT
       );
     `;
@@ -48,8 +48,8 @@ const NotificationModel = {
       baseQuery += ` AND created_date::date <= $${params.length}`;
     }
     if (employee && employee !== 'All Employees') {
-      params.push(employee);
-      baseQuery += ` AND employee_name = $${params.length}`;
+      params.push(`%${employee}%`);
+      baseQuery += ` AND employee_name ILIKE $${params.length}`;
     }
     if (teamsGroup && teamsGroup !== 'All Groups') {
       params.push(teamsGroup);
@@ -69,9 +69,10 @@ const NotificationModel = {
     const countResult = await db.query(countQuery, params);
     const total = parseInt(countResult.rows[0]?.total || 0, 10);
 
-    params.push(limit, offset);
-    const dataQuery = `SELECT * ${baseQuery} ORDER BY created_date DESC LIMIT $${params.length - 1} OFFSET $${params.length}`;
-    const { rows } = await db.query(dataQuery, params);
+    // Clone params to avoid mutating array during pagination query construction
+    const queryParams = [...params, limit, offset];
+    const dataQuery = `SELECT * ${baseQuery} ORDER BY created_date DESC LIMIT $${queryParams.length - 1} OFFSET $${queryParams.length}`;
+    const { rows } = await db.query(dataQuery, queryParams);
 
     return { rows, total };
   },
@@ -93,14 +94,15 @@ const NotificationModel = {
   },
 
   getAllSettings: async () => {
-    const res = await db.query(`SELECT * FROM teams_configs`);
+    const res = await db.query(`SELECT * FROM teams_configs ORDER BY group_name ASC`);
     return res.rows;
   },
 
   saveSettings: async (groupName, webhookUrl) => {
     const res = await db.query(
-      `INSERT INTO teams_configs (group_name, webhook_url) VALUES ($1, $2)
-       ON CONFLICT (group_name) DO UPDATE SET webhook_url = EXCLUDED.webhook_url
+      `INSERT INTO teams_configs (group_name, webhook_url, is_active) 
+       VALUES ($1, $2, 1)
+       ON CONFLICT (group_name) DO UPDATE SET webhook_url = EXCLUDED.webhook_url, is_active = 1
        RETURNING id`,
       [groupName, webhookUrl]
     );
@@ -128,7 +130,7 @@ const NotificationModel = {
       );
     `;
     const res = await db.query(syncSql);
-    return { changes: res.rowCount };
+    return { changes: res.rowCount || 0 };
   }
 };
 

@@ -6,60 +6,101 @@ const path = require("path");
 
 const authRoutes = require("./routes/authRoutes");
 const mistakeRoutes = require("./routes/mistakeRoutes");
-const teamsRoutes = require("./routes/teamsRoutes"); // Added Teams routes module
+const teamsRoutes = require("./routes/teamsRoutes");
 
 // Database Model Import for Initialization
 const NotificationModel = require("./models/notificationModel");
 
 const app = express();
 
-// DATABASE & SCHEMA INITIALIZATION //
-// Initializes teams_notifications & teams_configs tables if they don't exist
-NotificationModel.initTables();
-
-// Automatically syncs existing dashboard mistake records to teams_notifications table on startup
-NotificationModel.syncDashboardData()
-  .then((result) => {
-    if (result && result.changes > 0) {
-      console.log(`[Database Sync] Successfully synced ${result.changes} dashboard record(s) to Teams Notifications.`);
-    }
-  })
-  .catch((err) => {
-    console.error("[Database Sync Error] Failed to sync dashboard records:", err.message);
-  });
-
 // MIDDLEWARE //
 
-app.use(cors());
+// Configured CORS for production domain flexibility
+const allowedOrigins = [
+  process.env.CLIENT_URL,
+  "http://localhost:3000",
+  "http://localhost:5173",
+].filter(Boolean);
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps, curl, or Postman)
+      if (!origin || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      return callback(null, true); // Fallback to allow during staging
+    },
+    credentials: true,
+  })
+);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve uploaded files
+// Serve static uploaded files
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // ROUTES //
 
 app.use("/api/auth", authRoutes);
 app.use("/api/mistakes", mistakeRoutes);
-app.use("/api/teams", teamsRoutes); // Added Teams API route group
+app.use("/api/teams", teamsRoutes);
 
-// HEALTH CHECK ROUTE // 
+// HEALTH CHECK ROUTE //
 
 app.get("/", (req, res) => {
-  res.json({ message: "IAIL Server Running Successfully 🚀" });
+  res.json({ message: "IAIL Server Running Successfully 🚀", timestamp: new Date() });
 });
 
 // GLOBAL ERROR HANDLER //
 
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ message: "Internal Server Error" });
+  console.error("[Global Error Handler]:", err.stack);
+  res.status(500).json({
+    message: "Internal Server Error",
+    error: process.env.NODE_ENV === "development" ? err.message : undefined,
+  });
 });
 
-// SERVER START //
+// SERVER START & ASYNC INITIALIZATION //
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+const startServer = async () => {
+  try {
+    // 1. Initialize DB tables
+    await NotificationModel.initTables();
+    console.log("[Database] Schema tables initialized successfully.");
+
+    // 2. Sync existing dashboard mistake records to teams_notifications
+    const syncResult = await NotificationModel.syncDashboardData();
+    if (syncResult && syncResult.changes > 0) {
+      console.log(
+        `[Database Sync] Successfully synced ${syncResult.changes} dashboard record(s) to Teams Notifications.`
+      );
+    } else {
+      console.log("[Database Sync] No new records to sync.");
+    }
+
+    // 3. Start listening for requests
+    app.listen(PORT, () => {
+      console.log(`🚀 Server running on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error("[Server Startup Error]:", error.message);
+    process.exit(1);
+  }
+};
+
+startServer();
+
+// PROCESS ERROR CATCHERS //
+
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("[Unhandled Rejection]:", reason);
+});
+
+process.on("uncaughtException", (error) => {
+  console.error("[Uncaught Exception]:", error);
 });

@@ -4,81 +4,86 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import AddMistake from "./pages/AddMistake";
-import ProLayout from "./components/ProLayout";
 import Register from "./pages/Register";
-import TeamsNotifications from "./pages/TeamsNotifications"; // ⭐ NEW IMPORT
+import TeamsNotifications from "./pages/TeamsNotifications";
+import ProLayout from "./components/ProLayout";
+
+// Wrapper for Protected Routes (requires active JWT token)
+const ProtectedRoute = ({ children }) => {
+  const token = localStorage.getItem("token");
+  if (!token) {
+    return <Navigate to="/" replace />;
+  }
+  return <ProLayout>{children}</ProLayout>;
+};
+
+// Wrapper for Public Routes (redirects to dashboard if already logged in)
+const PublicRoute = ({ children }) => {
+  const token = localStorage.getItem("token");
+  if (token) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return children;
+};
 
 function App() {
-  const token = localStorage.getItem("token");
-
   return (
     <BrowserRouter>
       <Routes>
-
-        {/* LOGIN ROUTE */}
+        {/* PUBLIC ROUTES */}
         <Route
           path="/"
           element={
-            token ? <Navigate to="/dashboard" /> : <Login />
+            <PublicRoute>
+              <Login />
+            </PublicRoute>
           }
         />
-
-        {/* ✅ REGISTER ROUTE (ADD THIS) */}
         <Route
           path="/register"
           element={
-            token ? <Navigate to="/dashboard" /> : <Register />
+            <PublicRoute>
+              <Register />
+            </PublicRoute>
           }
         />
 
-        {/* DASHBOARD (PROTECTED) */}
+        {/* PROTECTED ROUTES */}
         <Route
           path="/dashboard"
           element={
-            token ? (
-              <ProLayout>
-                <Dashboard />
-              </ProLayout>
-            ) : (
-              <Navigate to="/" />
-            )
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
           }
         />
-
-        {/* ADD MISTAKE (PROTECTED) */}
         <Route
           path="/add-mistake"
           element={
-            token ? (
-              <ProLayout>
-                <AddMistake />
-              </ProLayout>
-            ) : (
-              <Navigate to="/" />
-            )
+            <ProtectedRoute>
+              <AddMistake />
+            </ProtectedRoute>
           }
         />
-
-        {/* ⭐ TEAMS NOTIFICATIONS (PROTECTED) */}
         <Route
           path="/teams-notifications"
           element={
-            token ? (
-              <ProLayout>
-                <TeamsNotifications />
-              </ProLayout>
-            ) : (
-              <Navigate to="/" />
-            )
+            <ProtectedRoute>
+              <TeamsNotifications />
+            </ProtectedRoute>
           }
         />
 
-        {/* CATCH ALL */}
+        {/* CATCH ALL ROUTE */}
         <Route
           path="*"
-          element={<Navigate to={token ? "/dashboard" : "/"} />}
+          element={
+            <Navigate
+              to={localStorage.getItem("token") ? "/dashboard" : "/"}
+              replace
+            />
+          }
         />
-
       </Routes>
     </BrowserRouter>
   );

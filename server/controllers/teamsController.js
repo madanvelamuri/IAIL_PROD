@@ -130,8 +130,8 @@ exports.saveSettings = async (req, res) => {
   if (!groupName || !webhookUrl) return res.status(400).json({ message: 'groupName and webhookUrl are required' });
 
   try {
-    const result = await NotificationModel.saveSettings(groupName, webhookUrl);
-    return res.json({ success: true, id: result.lastID });
+    const record = await NotificationModel.saveSettings(groupName, webhookUrl);
+    return res.json({ success: true, id: record?.id });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
