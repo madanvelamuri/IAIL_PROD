@@ -109,28 +109,62 @@ const NotificationModel = {
     return res.rows[0];
   },
 
-  // Sync existing mistakes table into teams_notifications
+  // Sync existing mistakes table into teams_notifications safely
   syncDashboardData: async () => {
-    const syncSql = `
-      INSERT INTO teams_notifications (claim_id, employee_name, mistake_type, description, created_date, teams_group, status)
-      SELECT 
-        m.claim_id,
-        m.employee_name,
-        m.mistake_type,
-        m.description,
-        COALESCE(m.created_date, CURRENT_TIMESTAMP),
-        COALESCE(m.teams_group, 'QC Team'),
-        'Pending'
-      FROM mistakes m
-      WHERE NOT EXISTS (
-        SELECT 1 FROM teams_notifications tn 
-        WHERE tn.claim_id = m.claim_id 
-          AND tn.employee_name = m.employee_name 
-          AND tn.mistake_type = m.mistake_type
-      );
-    `;
-    const res = await db.query(syncSql);
-    return { changes: res.rowCount || 0 };
+    try {
+      // 1. Inspect existing columns in the 'mistakes' table dynamically
+      const columnCheckSql = `
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'mistakes';
+      `;
+      const colResult = await db.query(columnCheckSql);
+      const existingCols = colResult.rows.map((r) => r.column_name.toLowerCase());
+
+      // Determine date expression fallback
+      let dateExpression = 'CURRENT_TIMESTAMP';
+      if (existingCols.includes('created_date')) {
+        dateExpression = 'COALESCE(m.created_date, CURRENT_TIMESTAMP)';
+      } else if (existingCols.includes('created_at')) {
+        dateExpression = 'COALESCE(m.created_at, CURRENT_TIMESTAMP)';
+      } else if (existingCols.includes('date')) {
+        dateExpression = 'COALESCE(m.date, CURRENT_TIMESTAMP)';
+      }
+
+      // Determine group expression fallback
+      let groupExpression = `'QC Team'`;
+      if (existingCols.includes('teams_group')) {
+        groupExpression = `COALESCE(m.teams_group, 'QC Team')`;
+      } else if (existingCols.includes('group_name')) {
+        groupExpression = `COALESCE(m.group_name, 'QC Team')`;
+      }
+
+      // 2. Execute safe sync query
+      const syncSql = `
+        INSERT INTO teams_notifications (claim_id, employee_name, mistake_type, description, created_date, teams_group, status)
+        SELECT 
+          m.claim_id,
+          m.employee_name,
+          m.mistake_type,
+          ${existingCols.includes('description') ? 'm.description' : "''"},
+          ${dateExpression},
+          ${groupExpression},
+          'Pending'
+        FROM mistakes m
+        WHERE NOT EXISTS (
+          SELECT 1 FROM teams_notifications tn 
+          WHERE tn.claim_id::text = m.claim_id::text 
+            AND tn.employee_name = m.employee_name 
+            AND tn.mistake_type = m.mistake_type
+        );
+      `;
+
+      const res = await db.query(syncSql);
+      return { changes: res.rowCount || 0 };
+    } catch (err) {
+      console.error('[NotificationModel] Sync Error:', err.message);
+      return { changes: 0 };
+    }
   }
 };
 
