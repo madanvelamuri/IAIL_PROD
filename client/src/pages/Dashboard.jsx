@@ -161,16 +161,16 @@ export default function Dashboard() {
 
     const headers = ["Claim ID", "Employee Name", "Mistake Type", "Description", "Created Date", "Screenshot URL"];
 
-   const rows = filteredData.map(m => [
-  `="${String(m.claim_id)}"`,
-  `"${(m.employee_name || "").replace(/"/g, '""')}"`,
-  `"${(m.mistake_type || "").replace(/"/g, '""')}"`,
-  `"${(m.description || "").replace(/"/g, '""')}"`,
-  `"${new Date(m.created_at).toISOString().split("T")[0]}"`,
-  m.screenshot_url
-    ? `"=HYPERLINK(""${(m.screenshot_url).replace(/"/g, '""')}"",""View"")"`
-    : `""`
-]);
+    const rows = filteredData.map(m => [
+      `="${String(m.claim_id)}"`,
+      `"${(m.employee_name || "").replace(/"/g, '""')}"`,
+      `"${(m.mistake_type || "").replace(/"/g, '""')}"`,
+      `"${(m.description || "").replace(/"/g, '""')}"`,
+      `"${new Date(m.created_at).toISOString().split("T")[0]}"`,
+      m.screenshot_url
+        ? `"=HYPERLINK(""${(m.screenshot_url).replace(/"/g, '""')}"",""View"")"`
+        : `""`
+    ]);
 
     const csvContent = [headers, ...rows]
       .map(e => e.join(","))
@@ -248,6 +248,13 @@ export default function Dashboard() {
   const topEmployee = Object.keys(employeeFrequency).length > 0
     ? Object.keys(employeeFrequency).reduce((a, b) => employeeFrequency[a] > employeeFrequency[b] ? a : b)
     : "-";
+
+  /* Calculate Repeated Mistakes Map */
+  const repeatedMistakeMap = {};
+  filteredData.forEach(m => {
+    const key = `${m.employee_name}_${m.mistake_type}`;
+    repeatedMistakeMap[key] = (repeatedMistakeMap[key] || 0) + 1;
+  });
 
   const monthly = {};
   filteredData.forEach(m => {
@@ -392,6 +399,7 @@ export default function Dashboard() {
               <th className="p-4">🏷️ Type</th>
               <th className="p-4">📝 Description</th>
               <th className="p-4">🗓️ Date</th>
+              <th className="p-4 text-center">🔁 Repeated</th>
               <th className="p-4 text-center">⚙️ Action</th>
             </tr>
           </thead>
@@ -402,7 +410,20 @@ export default function Dashboard() {
                 <td className="p-4 font-medium">{m.employee_name}</td>
                 <td className="p-4"><span className="bg-slate-100 px-2 py-1 rounded text-xs font-bold uppercase">{m.mistake_type}</span></td>
                 <td className="p-4 text-slate-500 text-sm truncate max-w-[200px]">{m.description}</td>
-                <td className="p-4 text-slate-500 text-sm">{new Date(m.created_at).toLocaleDateString()}</td>
+                <td className="p-4 text-slate-500 text-sm">
+                  {new Date(m.created_at).toLocaleDateString()}
+                </td>
+
+                <td className="p-4 text-center">
+                  {repeatedMistakeMap[`${m.employee_name}_${m.mistake_type}`] > 1 ? (
+                    <span className="font-bold text-red-600">
+                      Repeated ({repeatedMistakeMap[`${m.employee_name}_${m.mistake_type}`]})
+                    </span>
+                  ) : (
+                    ""
+                  )}
+                </td>
+
                 <td className="p-4">
                   <div className="flex justify-center gap-2">
                     {m.screenshot_url && (
