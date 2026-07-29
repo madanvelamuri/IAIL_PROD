@@ -1,48 +1,38 @@
 const db = require('../config/db');
 
-const dbGet = (sql, params = []) => new Promise((resolve, reject) => {
-  db.get(sql, params, (err, row) => err ? reject(err) : resolve(row));
-});
-
-const dbAll = (sql, params = []) => new Promise((resolve, reject) => {
-  db.all(sql, params, (err, rows) => err ? reject(err) : resolve(rows));
-});
-
-const dbRun = (sql, params = []) => new Promise((resolve, reject) => {
-  db.run(sql, params, function (err) {
-    err ? reject(err) : resolve(this);
-  });
-});
-
 const NotificationModel = {
-  // Initialize SQLite tables
-  initTables: () => {
+  // Initialize PostgreSQL tables
+  initTables: async () => {
     const createLogsTable = `
       CREATE TABLE IF NOT EXISTS teams_notifications (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        claim_id TEXT NOT NULL,
-        employee_name TEXT NOT NULL,
-        mistake_type TEXT NOT NULL,
+        id SERIAL PRIMARY KEY,
+        claim_id VARCHAR(255) NOT NULL,
+        employee_name VARCHAR(255) NOT NULL,
+        mistake_type VARCHAR(255) NOT NULL,
         description TEXT,
-        created_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-        teams_group TEXT DEFAULT 'QC Team',
-        status TEXT CHECK(status IN ('Sent', 'Failed', 'Pending')) DEFAULT 'Pending',
-        sent_at DATETIME,
+        created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        teams_group VARCHAR(255) DEFAULT 'QC Team',
+        status VARCHAR(50) CHECK (status IN ('Sent', 'Failed', 'Pending')) DEFAULT 'Pending',
+        sent_at TIMESTAMP,
         error_message TEXT
       );
     `;
 
     const createConfigTable = `
       CREATE TABLE IF NOT EXISTS teams_configs (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        group_name TEXT UNIQUE NOT NULL,
+        id SERIAL PRIMARY KEY,
+        group_name VARCHAR(255) UNIQUE NOT NULL,
         webhook_url TEXT NOT NULL,
-        is_active INTEGER DEFAULT 1
+        is_active INT DEFAULT 1
       );
     `;
 
-    db.run(createLogsTable);
-    db.run(createConfigTable);
+    try {
+      await db.query(createLogsTable);
+      await db.query(createConfigTable);
+    } catch (err) {
+      console.error('[NotificationModel] Table init error:', err.message);
+    }
   },
 
   getNotifications: async ({ fromDate, toDate, employee, teamsGroup, status, search, limit, offset }) => {
@@ -50,66 +40,71 @@ const NotificationModel = {
     const params = [];
 
     if (fromDate) {
-      baseQuery += ` AND DATE(created_date) >= DATE(?)`;
       params.push(fromDate);
+      baseQuery += ` AND created_date::date >= $${params.length}`;
     }
     if (toDate) {
-      baseQuery += ` AND DATE(created_date) <= DATE(?)`;
       params.push(toDate);
+      baseQuery += ` AND created_date::date <= $${params.length}`;
     }
     if (employee && employee !== 'All Employees') {
-      baseQuery += ` AND employee_name = ?`;
       params.push(employee);
+      baseQuery += ` AND employee_name = $${params.length}`;
     }
     if (teamsGroup && teamsGroup !== 'All Groups') {
-      baseQuery += ` AND teams_group = ?`;
       params.push(teamsGroup);
+      baseQuery += ` AND teams_group = $${params.length}`;
     }
     if (status && status !== 'All') {
-      baseQuery += ` AND status = ?`;
       params.push(status);
+      baseQuery += ` AND status = $${params.length}`;
     }
     if (search) {
-      baseQuery += ` AND (claim_id LIKE ? OR employee_name LIKE ? OR mistake_type LIKE ? OR description LIKE ?)`;
-      const term = `%${search}%`;
-      params.push(term, term, term, term);
+      params.push(`%${search}%`);
+      const idx = params.length;
+      baseQuery += ` AND (claim_id ILIKE $${idx} OR employee_name ILIKE $${idx} OR mistake_type ILIKE $${idx} OR description ILIKE $${idx})`;
     }
 
     const countQuery = `SELECT COUNT(*) as total ${baseQuery}`;
-    const countResult = await dbGet(countQuery, params);
-    const total = countResult ? countResult.total : 0;
+    const countResult = await db.query(countQuery, params);
+    const total = parseInt(countResult.rows[0]?.total || 0, 10);
 
-    const dataQuery = `SELECT * ${baseQuery} ORDER BY created_date DESC LIMIT ? OFFSET ?`;
-    const rows = await dbAll(dataQuery, [...params, limit, offset]);
+    params.push(limit, offset);
+    const dataQuery = `SELECT * ${baseQuery} ORDER BY created_date DESC LIMIT $${params.length - 1} OFFSET $${params.length}`;
+    const { rows } = await db.query(dataQuery, params);
 
     return { rows, total };
   },
 
   getWebhookConfig: async (teamsGroup) => {
-    return await dbGet(
-      `SELECT webhook_url FROM teams_configs WHERE group_name = ? AND is_active = 1`, 
+    const res = await db.query(
+      `SELECT webhook_url FROM teams_configs WHERE group_name = $1 AND is_active = 1`,
       [teamsGroup]
     );
+    return res.rows[0];
   },
 
   updateStatus: async (id, status, errorMessage = null) => {
-    const now = new Date().toISOString();
-    return await dbRun(
-      `UPDATE teams_notifications SET status = ?, sent_at = ?, error_message = ? WHERE id = ?`,
+    const now = new Date();
+    return await db.query(
+      `UPDATE teams_notifications SET status = $1, sent_at = $2, error_message = $3 WHERE id = $4`,
       [status, now, errorMessage, id]
     );
   },
 
   getAllSettings: async () => {
-    return await dbAll(`SELECT * FROM teams_configs`);
+    const res = await db.query(`SELECT * FROM teams_configs`);
+    return res.rows;
   },
 
   saveSettings: async (groupName, webhookUrl) => {
-    return await dbRun(
-      `INSERT INTO teams_configs (group_name, webhook_url) VALUES (?, ?) 
-       ON CONFLICT(group_name) DO UPDATE SET webhook_url = excluded.webhook_url`,
+    const res = await db.query(
+      `INSERT INTO teams_configs (group_name, webhook_url) VALUES ($1, $2)
+       ON CONFLICT (group_name) DO UPDATE SET webhook_url = EXCLUDED.webhook_url
+       RETURNING id`,
       [groupName, webhookUrl]
     );
+    return res.rows[0];
   },
 
   // Sync existing mistakes table into teams_notifications
@@ -132,7 +127,8 @@ const NotificationModel = {
           AND tn.mistake_type = m.mistake_type
       );
     `;
-    return await dbRun(syncSql);
+    const res = await db.query(syncSql);
+    return { changes: res.rowCount };
   }
 };
 
