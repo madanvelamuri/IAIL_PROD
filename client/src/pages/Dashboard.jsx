@@ -152,35 +152,57 @@ export default function Dashboard() {
     }
   };
 
-  // ✅ FIXED EXPORT: Handles Excel date columns and text formatting perfectly
-  const handleExportCSV = () => {
-    if (filteredData.length === 0) {
-      alert("No data to export");
-      return;
+  /// ✅ FIXED EXPORT: Handles Excel date columns and text formatting perfectly
+const handleExportCSV = () => {
+  if (filteredData.length === 0) {
+    alert("No data to export");
+    return;
+  }
+
+  // Calculate repeated mistake count
+  const repeatedMistakeMap = {};
+
+  filteredData.forEach((m) => {
+    const key = `${m.employee_name}_${m.mistake_type}`;
+    repeatedMistakeMap[key] = (repeatedMistakeMap[key] || 0) + 1;
+  });
+
+  const headers = [
+    "Claim ID",
+    "Employee Name",
+    "Mistake Type",
+    "Description",
+    "Created Date",
+    "Screenshot URL",
+    "Repeated"
+  ];
+
+  const rows = filteredData.map((m) => {
+    let formattedDate = "";
+
+    if (m.created_at) {
+      const d = new Date(m.created_at);
+      if (!isNaN(d.getTime())) {
+        formattedDate = d.toISOString().split("T")[0];
+      }
     }
 
-    const headers = ["Claim ID", "Employee Name", "Mistake Type", "Description", "Created Date", "Screenshot URL"];
+    const key = `${m.employee_name}_${m.mistake_type}`;
 
-    const rows = filteredData.map(m => {
-      let formattedDate = "";
-      if (m.created_at) {
-        const d = new Date(m.created_at);
-        if (!isNaN(d.getTime())) {
-          formattedDate = d.toISOString().split("T")[0];
-        }
-      }
-
-      return [
-        `="${String(m.claim_id || '')}"`,
-        `"${(m.employee_name || "").replace(/"/g, '""')}"`,
-        `"${(m.mistake_type || "").replace(/"/g, '""')}"`,
-        `"${(m.description || "").replace(/"/g, '""')}"`,
-        `"${formattedDate}"`,
-        m.screenshot_url
-          ? `"=HYPERLINK(""${(m.screenshot_url).replace(/"/g, '""')}"",""View"")"`
-          : `""`
-      ];
-    });
+    return [
+      `="${String(m.claim_id || "")}"`,
+      `"${(m.employee_name || "").replace(/"/g, '""')}"`,
+      `"${(m.mistake_type || "").replace(/"/g, '""')}"`,
+      `"${(m.description || "").replace(/"/g, '""')}"`,
+      `"${formattedDate}"`,
+      m.screenshot_url
+        ? `"=HYPERLINK(""${m.screenshot_url.replace(/"/g, '""')}"",""View"")"`
+        : `""`,
+      repeatedMistakeMap[key] > 1
+        ? `"Repeated (${repeatedMistakeMap[key]})"`
+        : `""`
+    ];
+  });
 
     const csvContent = [headers, ...rows]
       .map(e => e.join(","))
