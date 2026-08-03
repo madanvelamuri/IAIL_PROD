@@ -3,10 +3,14 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
+const cron = require("node-cron");
 
 const authRoutes = require("./routes/authRoutes");
 const mistakeRoutes = require("./routes/mistakeRoutes");
 const teamsRoutes = require("./routes/teamsRoutes");
+
+// Controller Function for Automated Report Delivery
+const { generateAndSendTeamsReport } = require("./controllers/teamsController");
 
 // Database Model Import for Initialization
 const NotificationModel = require("./models/notificationModel");
@@ -52,6 +56,26 @@ app.use("/api/teams", teamsRoutes);
 app.get("/", (req, res) => {
   res.json({ message: "IAIL Server Running Successfully 🚀", timestamp: new Date() });
 });
+
+// CRON JOB: AUTOMATED REPORT AT 6:00 PM IST DAILY //
+
+cron.schedule(
+  "0 18 * * *",
+  async () => {
+    console.log("⏰ [Cron Job] Triggering daily MS Teams report at 6:00 PM IST...");
+    try {
+      // Default to 'QC Team' or adjust as needed
+      await generateAndSendTeamsReport("QC Team");
+      console.log("✅ [Cron Job] Daily report sent successfully to MS Teams!");
+    } catch (error) {
+      console.error("❌ [Cron Job Error]:", error.message);
+    }
+  },
+  {
+    scheduled: true,
+    timezone: "Asia/Kolkata", // Guarantees 6:00 PM IST on Render production servers
+  }
+);
 
 // GLOBAL ERROR HANDLER //
 

@@ -1,13 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Send, Search, RotateCcw, ArrowUpDown, User } from 'lucide-react';
+import { Settings, Send, Search, RotateCcw, ArrowUpDown, User, FileText, Users } from 'lucide-react';
 import StatusBadge from '../components/StatusBadge';
 import TeamsModal from '../components/TeamsModal';
 import TeamsSettings from '../components/TeamsSettings';
-import { getNotifications, resendNotification, syncDashboardNotifications } from '../services/teamsService';
+import { 
+  getNotifications, 
+  resendNotification, 
+  syncDashboardNotifications, 
+  sendReportNotification 
+} from '../services/teamsService';
 
 const TeamsNotifications = () => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [reportLoading, setReportLoading] = useState(false);
+
+  // Group Select State for Manual Report Posting
+  const [selectedReportGroup, setSelectedReportGroup] = useState('QC Team');
 
   // Filter States
   const [fromDate, setFromDate] = useState('');
@@ -88,10 +97,31 @@ const TeamsNotifications = () => {
     }
   };
 
+  // Manual Trigger using Selected Dropdown Option
+  const handleSendReport = async () => {
+    setReportLoading(true);
+    try {
+      await sendReportNotification({
+        teamsGroup: selectedReportGroup,
+        fromDate,
+        toDate,
+        employee,
+        search,
+      });
+      alert(`📊 Report table sent to ${selectedReportGroup} successfully!`);
+      fetchLogs();
+    } catch (err) {
+      console.error('Failed to send report:', err);
+      alert(`Failed to send report to ${selectedReportGroup}. Ensure Webhook is configured in Settings.`);
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
   return (
     <div className="p-6 bg-slate-100/60 min-h-screen">
       {/* Top Header */}
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-600 font-bold">
             <Send className="w-5 h-5" />
@@ -99,7 +129,33 @@ const TeamsNotifications = () => {
           <h1 className="text-2xl font-bold text-gray-900">Teams Notifications</h1>
         </div>
 
-        <div className="flex items-center gap-3">
+        {/* Header Action Controls */}
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Group Select Dropdown */}
+          <div className="relative flex items-center">
+            <Users className="w-4 h-4 absolute left-3.5 text-gray-400 pointer-events-none" />
+            <select
+              value={selectedReportGroup}
+              onChange={(e) => setSelectedReportGroup(e.target.value)}
+              className="pl-9 pr-8 py-2 bg-white border border-gray-200 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition shadow-sm appearance-none cursor-pointer"
+            >
+              <option value="QC Team">QC Team</option>
+              <option value="QA Team">QA Team</option>
+              <option value="Management">Management</option>
+              <option value="Claims Team">Claims Team</option>
+            </select>
+          </div>
+
+          {/* Manual Post Report Button */}
+          <button
+            onClick={handleSendReport}
+            disabled={reportLoading}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 disabled:opacity-50 transition shadow-sm"
+          >
+            <FileText className="w-4 h-4" />
+            {reportLoading ? 'Posting Report...' : 'Send Report'}
+          </button>
+
           <button
             onClick={() => setIsSettingsOpen(true)}
             className="flex items-center gap-2 px-4 py-2 border border-gray-200 bg-white text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-50 transition shadow-sm"
@@ -107,6 +163,7 @@ const TeamsNotifications = () => {
             <Settings className="w-4 h-4" />
             Settings
           </button>
+          
           <button
             onClick={() => setIsTestModalOpen(true)}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition shadow-sm"
