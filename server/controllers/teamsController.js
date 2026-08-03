@@ -42,91 +42,50 @@ const generateAndSendTeamsReport = async ({
 
   if (!mistakes || mistakes.length === 0) {
     await axios.post(config.webhook_url, {
-      type: "message",
-      text: `📊 **Mistake Tracking Report**\n\nNo mistake records found for group: **${teamsGroup}**.`
+      "@type": "MessageCard",
+      "@context": "http://schema.org/extensions",
+      "summary": `Mistake Tracking Report - ${teamsGroup}`,
+      "text": `📊 **Mistake Tracking Report (${teamsGroup})**\n\nNo mistake records found.`
     });
     return { success: true, message: 'No records to report.' };
   }
 
   const SERVER_URL = process.env.SERVER_URL || 'http://localhost:5000';
 
-  const tableRows = mistakes.map((item) => {
-    let screenshotMarkup = '-';
+  // Exact header names matching spreadsheet:
+  // Claim ID | Employee Name | Mistake Type | Description | Created Date | Screenshot URL | Repeated
+  let markdownTable = `| Claim ID | Employee Name | Mistake Type | Description | Created Date | Screenshot URL | Repeated |\n`;
+  markdownTable += `| :--- | :--- | :--- | :--- | :--- | :---: | :---: |\n`;
+
+  mistakes.forEach((item) => {
+    let linkMarkup = '-';
     if (item.screenshot_url) {
       const fullUrl = item.screenshot_url.startsWith('http')
         ? item.screenshot_url
         : `${SERVER_URL}${item.screenshot_url.startsWith('/') ? '' : '/'}${item.screenshot_url}`;
-      screenshotMarkup = `[View](${fullUrl})`;
+      linkMarkup = `[View Link](${fullUrl})`;
     }
 
-    return {
-      type: "TableRow",
-      cells: [
-        { type: "TableCell", items: [{ type: "TextBlock", text: String(item.claim_id || '-'), wrap: true }] },
-        { type: "TableCell", items: [{ type: "TextBlock", text: String(item.employee_name || '-'), wrap: true }] },
-        { type: "TableCell", items: [{ type: "TextBlock", text: String(item.mistake_type || '-'), wrap: true }] },
-        { type: "TableCell", items: [{ type: "TextBlock", text: String(item.description || '-'), wrap: true }] },
-        { type: "TableCell", items: [{ type: "TextBlock", text: formatDate(item.created_date), wrap: true }] },
-        { type: "TableCell", items: [{ type: "TextBlock", text: screenshotMarkup, wrap: true }] },
-        {
-          type: "TableCell",
-          items: [{
-            type: "TextBlock",
-            text: item.repeated_count ? `(${item.repeated_count})` : '-',
-            wrap: true
-          }]
-        }
-      ]
-    };
+    const claimId = item.claim_id || '-';
+    const empName = item.employee_name || '-';
+    const mistake = item.mistake_type || '-';
+    const desc = item.description || '-';
+    const createdDate = formatDate(item.created_date);
+    const repeated = item.repeated_count ? `Yes (${item.repeated_count})` : 'No';
+
+    markdownTable += `| ${claimId} | ${empName} | ${mistake} | ${desc} | ${createdDate} | ${linkMarkup} | ${repeated} |\n`;
   });
 
   const teamsPayload = {
-    type: "message",
-    attachments: [
+    "@type": "MessageCard",
+    "@context": "http://schema.org/extensions",
+    "themeColor": "0076D7",
+    "summary": `Mistake Tracking Report (${teamsGroup})`,
+    "sections": [
       {
-        contentType: "application/vnd.microsoft.card.adaptive",
-        contentUrl: null,
-        content: {
-          $schema: "http://adaptivecards.io/schemas/adaptivecard.json",
-          type: "AdaptiveCard",
-          version: "1.4",
-          body: [
-            {
-              type: "TextBlock",
-              text: `📊 **Mistake Tracking Report (${teamsGroup})**`,
-              weight: "Bolder",
-              size: "Medium"
-            },
-            {
-              type: "Table",
-              columns: [
-                { width: 3 },
-                { width: 3 },
-                { width: 3 },
-                { width: 4 },
-                { width: 3 },
-                { width: 2 },
-                { width: 2 }
-              ],
-              rows: [
-                {
-                  type: "TableRow",
-                  isHeader: true,
-                  cells: [
-                    { type: "TableCell", items: [{ type: "TextBlock", text: "**Claim ID**", weight: "Bolder" }] },
-                    { type: "TableCell", items: [{ type: "TextBlock", text: "**Employee**", weight: "Bolder" }] },
-                    { type: "TableCell", items: [{ type: "TextBlock", text: "**Mistake**", weight: "Bolder" }] },
-                    { type: "TableCell", items: [{ type: "TextBlock", text: "**Description**", weight: "Bolder" }] },
-                    { type: "TableCell", items: [{ type: "TextBlock", text: "**Date**", weight: "Bolder" }] },
-                    { type: "TableCell", items: [{ type: "TextBlock", text: "**Screenshot**", weight: "Bolder" }] },
-                    { type: "TableCell", items: [{ type: "TextBlock", text: "**Repeat**", weight: "Bolder" }] }
-                  ]
-                },
-                ...tableRows
-              ]
-            }
-          ]
-        }
+        "activityTitle": `📊 **Mistake Tracking Report (${teamsGroup})**`,
+        "text": markdownTable,
+        "markdown": true
       }
     ]
   };
