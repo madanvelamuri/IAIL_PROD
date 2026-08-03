@@ -1,22 +1,23 @@
 const NotificationModel = require('../models/notificationModel');
 const axios = require('axios');
 
-// Helper to format raw dates into clean, compact strings
+// Helper to format dates into exact DD-MM-YYYY format matching your spreadsheet
 const formatDate = (dateStr) => {
   if (!dateStr) return '-';
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return String(dateStr);
   
-  return d.toLocaleString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true,
-  });
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  
+  return `${day}-${month}-${year}`;
 };
 
+/**
+ * Reusable helper function to fetch records, format the Markdown Table,
+ * and post it to MS Teams via Webhook.
+ */
 const generateAndSendTeamsReport = async ({ 
   teamsGroup = 'QC Team', 
   fromDate, 
@@ -24,12 +25,14 @@ const generateAndSendTeamsReport = async ({
   employee, 
   search 
 } = {}) => {
+  // 1. Fetch saved Webhook URL for the group
   const config = await NotificationModel.getWebhookConfig(teamsGroup);
 
   if (!config || !config.webhook_url) {
     throw new Error(`No active MS Teams webhook found for group: ${teamsGroup}`);
   }
 
+  // 2. Fetch mistake records to populate the table
   const { rows: mistakes } = await NotificationModel.getNotifications({
     teamsGroup: teamsGroup !== 'All Groups' ? teamsGroup : undefined,
     fromDate,
@@ -52,18 +55,30 @@ const generateAndSendTeamsReport = async ({
 
   const SERVER_URL = process.env.SERVER_URL || 'http://localhost:5000';
 
-  // Exact header names matching spreadsheet:
-  // Claim ID | Employee Name | Mistake Type | Description | Created Date | Screenshot URL | Repeated
+  // 3. Build Markdown Table Header matching spreadsheet headers exactly
   let markdownTable = `| Claim ID | Employee Name | Mistake Type | Description | Created Date | Screenshot URL | Repeated |\n`;
-  markdownTable += `| :--- | :--- | :--- | :--- | :--- | :---: | :---: |\n`;
+  markdownTable += `| :--- | :--- | :--- | :--- | :---: | :---: | :---: |\n`;
 
+  // 4. Build Table Rows
   mistakes.forEach((item) => {
-    let linkMarkup = '-';
-    if (item.screenshot_url) {
-      const fullUrl = item.screenshot_url.startsWith('http')
-        ? item.screenshot_url
-        : `${SERVER_URL}${item.screenshot_url.startsWith('/') ? '' : '/'}${item.screenshot_url}`;
-      linkMarkup = `[View Link](${fullUrl})`;
+    // Screenshot URL Resolution (Matches sheet 'View' link)
+    const rawUrl = item.screenshot_url || item.screenshot;
+    let screenshotMarkup = '-';
+    
+    if (rawUrl) {
+      const fullUrl = rawUrl.startsWith('http')
+        ? rawUrl
+        : `${SERVER_URL}${rawUrl.startsWith('/') ? '' : '/'}${rawUrl}`;
+      screenshotMarkup = `[View](${fullUrl})`;
+    }
+
+    // Repeated Column Logic (Matches sheet 'Repeated (2)' format)
+    let repeatedMarkup = '-';
+    const count = parseInt(item.repeated_count || item.repeat_count || 0, 10);
+    if (count > 0) {
+      repeatedMarkup = `Repeated (${count})`;
+    } else if (item.repeated === true || item.is_repeated) {
+      repeatedMarkup = 'Repeated';
     }
 
     const claimId = item.claim_id || '-';
@@ -71,11 +86,11 @@ const generateAndSendTeamsReport = async ({
     const mistake = item.mistake_type || '-';
     const desc = item.description || '-';
     const createdDate = formatDate(item.created_date);
-    const repeated = item.repeated_count ? `Yes (${item.repeated_count})` : 'No';
 
-    markdownTable += `| ${claimId} | ${empName} | ${mistake} | ${desc} | ${createdDate} | ${linkMarkup} | ${repeated} |\n`;
+    markdownTable += `| ${claimId} | ${empName} | ${mistake} | ${desc} | ${createdDate} | ${screenshotMarkup} | ${repeatedMarkup} |\n`;
   });
 
+  // 5. Teams MessageCard Payload
   const teamsPayload = {
     "@type": "MessageCard",
     "@context": "http://schema.org/extensions",
@@ -98,6 +113,7 @@ const generateAndSendTeamsReport = async ({
 
 exports.generateAndSendTeamsReport = generateAndSendTeamsReport;
 
+// Endpoint for manual trigger via UI "Send Report" button
 exports.sendReportNotification = async (req, res) => {
   try {
     const { teamsGroup, fromDate, toDate, employee, search } = req.body;
