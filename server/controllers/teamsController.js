@@ -15,6 +15,43 @@ const formatDate = (dateStr) => {
 };
 
 /**
+ * Helper to build valid, clickable public Supabase Storage URLs
+ * Aligns with the 'public' subfolder requirement in Supabase Storage RLS.
+ */
+const buildSupabaseScreenshotUrl = (rawUrl) => {
+  if (!rawUrl || String(rawUrl).trim() === '' || rawUrl === 'null') {
+    return null;
+  }
+
+  let fullUrl = String(rawUrl).trim();
+
+  // 1. If it's already a full valid HTTP/HTTPS URL, return it directly
+  if (fullUrl.startsWith('http://') || fullUrl.startsWith('https://')) {
+    return fullUrl;
+  }
+
+  const SUPABASE_BASE_URL = process.env.SUPABASE_URL || 'https://rzfmcziqenovgvhxgbau.supabase.co';
+  const BUCKET_NAME = 'screenshots';
+
+  // 2. Clean leading slashes, backslashes, or bucket prefixes if stored in DB string
+  let cleanedPath = fullUrl
+    .replace(/^\\+/, '')
+    .replace(/^\/+/, '')
+    .replace(/^screenshots\//i, '');
+
+  // 3. Ensure path includes the 'public/' subfolder required by Supabase RLS
+  if (!cleanedPath.toLowerCase().startsWith('public/')) {
+    cleanedPath = `public/${cleanedPath}`;
+  }
+
+  // 4. Encode filename segments to safely handle spaces and special characters
+  const pathParts = cleanedPath.split('/');
+  const encodedPath = pathParts.map(part => encodeURIComponent(part)).join('/');
+
+  return `${SUPABASE_BASE_URL}/storage/v1/object/public/${BUCKET_NAME}/${encodedPath}`;
+};
+
+/**
  * Reusable helper function to fetch records, format the Markdown Table,
  * and post it to MS Teams via Webhook.
  */
@@ -53,7 +90,7 @@ const generateAndSendTeamsReport = async ({
     return { success: true, message: 'No records to report.' };
   }
 
-  // 3. Pre-calculate repeated mistake frequencies (Matches Dashboard Logic: employee_name + "_" + mistake_type)
+  // 3. Pre-calculate repeated mistake frequencies (Matches Dashboard Logic)
   const repeatedMistakeMap = {};
   mistakes.forEach((m) => {
     const emp = m.employee_name || m.employeename || m.employee || 'Unknown';
@@ -62,11 +99,7 @@ const generateAndSendTeamsReport = async ({
     repeatedMistakeMap[key] = (repeatedMistakeMap[key] || 0) + 1;
   });
 
-  // Supabase Storage public bucket base
-  const SUPABASE_BASE_URL = process.env.SUPABASE_URL || 'https://rzfmcziqenovgvhxgbau.supabase.co';
-  const BUCKET_NAME = 'screenshots';
-
-  // 4. Build Markdown Table Header using &nbsp; to avoid ugly column title wrapping
+  // 4. Build Markdown Table Header using &nbsp; to prevent multiline column title wrapping
   let markdownTable = `| Claim ID | Employee Name | Mistake Type | Description | Created&nbsp;Date | Screenshot&nbsp;URL | Repeated |\n`;
   markdownTable += `| :--- | :--- | :--- | :--- | :---: | :---: | :---: |\n`;
 
@@ -75,25 +108,19 @@ const generateAndSendTeamsReport = async ({
     const claimId = item.claim_id || item.claimid || '-';
     const empName = item.employee_name || item.employeename || item.employee || '-';
     const mistake = item.mistake_type || item.mistaketype || '-';
-    const desc = item.description || '-';
+    
+    // Replace pipe characters in description to keep Markdown table formatting intact
+    let rawDesc = item.description || '-';
+    const desc = rawDesc.replace(/\|/g, '-');
+
     const createdDate = formatDate(item.created_date || item.createdat || item.created_at);
 
     // Screenshot URL Resolution for Supabase Storage
     const rawUrl = item.screenshot_url || item.screenshot || item.image_url || item.file_path;
-    let screenshotMarkup = '-';
+    const resolvedUrl = buildSupabaseScreenshotUrl(rawUrl);
     
-    if (rawUrl && String(rawUrl).trim() !== '' && rawUrl !== 'null') {
-      let fullUrl = String(rawUrl).trim();
-
-      if (fullUrl.startsWith('http://') || fullUrl.startsWith('https://')) {
-        screenshotMarkup = `[View](${fullUrl})`;
-      } else {
-        // Strip leading slash or bucket name if stored in DB string
-        const cleanedPath = fullUrl.replace(/^\/?(screenshots\/)?/, '');
-        fullUrl = `${SUPABASE_BASE_URL}/storage/v1/object/public/${BUCKET_NAME}/${cleanedPath}`;
-        screenshotMarkup = `[View](${fullUrl})`;
-      }
-    }
+    // Format markdown hyperlinked URL as [View](URL)
+    const screenshotMarkup = resolvedUrl ? `[View](${resolvedUrl})` : '-';
 
     // Repeated Calculation (Matches React Dashboard 'Repeated (X)')
     const key = `${empName}_${mistake}`;
