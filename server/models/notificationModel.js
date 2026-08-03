@@ -10,6 +10,7 @@ const NotificationModel = {
         employee_name VARCHAR(255) NOT NULL,
         mistake_type VARCHAR(255) NOT NULL,
         description TEXT,
+        screenshot_url TEXT,
         created_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         teams_group VARCHAR(255) DEFAULT 'QC Team',
         status VARCHAR(50) CHECK (status IN ('Sent', 'Failed', 'Pending')) DEFAULT 'Pending',
@@ -30,6 +31,12 @@ const NotificationModel = {
     try {
       await db.query(createLogsTable);
       await db.query(createConfigTable);
+
+      // Migration: Ensure existing table gets the screenshot_url column if it was created previously
+      await db.query(`
+        ALTER TABLE teams_notifications 
+        ADD COLUMN IF NOT EXISTS screenshot_url TEXT;
+      `);
     } catch (err) {
       console.error('[NotificationModel] Table init error:', err.message);
     }
@@ -69,7 +76,6 @@ const NotificationModel = {
     const countResult = await db.query(countQuery, params);
     const total = parseInt(countResult.rows[0]?.total || 0, 10);
 
-    // Clone params to avoid mutating array during pagination query construction
     const queryParams = [...params, limit, offset];
     const dataQuery = `SELECT * ${baseQuery} ORDER BY created_date DESC LIMIT $${queryParams.length - 1} OFFSET $${queryParams.length}`;
     const { rows } = await db.query(dataQuery, queryParams);
@@ -139,14 +145,25 @@ const NotificationModel = {
         groupExpression = `COALESCE(m.group_name, 'QC Team')`;
       }
 
-      // 2. Execute safe sync query
+      // Determine screenshot_url expression fallback
+      let screenshotExpression = 'NULL';
+      if (existingCols.includes('screenshot_url')) {
+        screenshotExpression = 'm.screenshot_url';
+      } else if (existingCols.includes('screenshot')) {
+        screenshotExpression = 'm.screenshot';
+      } else if (existingCols.includes('file_path')) {
+        screenshotExpression = 'm.file_path';
+      }
+
+      // 2. Execute safe sync query including screenshot_url
       const syncSql = `
-        INSERT INTO teams_notifications (claim_id, employee_name, mistake_type, description, created_date, teams_group, status)
+        INSERT INTO teams_notifications (claim_id, employee_name, mistake_type, description, screenshot_url, created_date, teams_group, status)
         SELECT 
           m.claim_id,
           m.employee_name,
           m.mistake_type,
           ${existingCols.includes('description') ? 'm.description' : "''"},
+          ${screenshotExpression},
           ${dateExpression},
           ${groupExpression},
           'Pending'
