@@ -123,7 +123,7 @@ const generateAndSendTeamsReport = async ({
                     { type: "TableCell", items: [{ type: "TextBlock", text: "**Description**", weight: "Bolder" }] },
                     { type: "TableCell", items: [{ type: "TextBlock", text: "**Date**", weight: "Bolder" }] },
                     { type: "TableCell", items: [{ type: "TextBlock", text: "**Screenshot**", weight: "Bolder" }] },
-                    { type: "TableCell", items: [{ type: "TableCell", items: [{ type: "TextBlock", text: "**Repeat**", weight: "Bolder" }] }] }
+                    { type: "TableCell", items: [{ type: "TextBlock", text: "**Repeat**", weight: "Bolder" }] } // ✅ Fixed
                   ]
                 },
                 ...tableRows
