@@ -66,3 +66,12 @@ export const sendReportNotification = async (reportData) => {
   const response = await axios.post(`${API_URL}/send-report`, reportData, getAuthHeaders());
   return response.data;
 };
+
+/**
+ * Delete a notification record by ID
+ * @param {string|number} id
+ */
+export const deleteNotification = async (id) => {
+  const response = await axios.delete(`${API_URL}/notifications/${id}`, getAuthHeaders());
+  return response.data;
+};
