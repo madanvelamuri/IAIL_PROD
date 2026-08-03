@@ -1,8 +1,10 @@
 import axios from 'axios';
 
-// Dynamically use Vite env variable in production, or fallback to localhost in dev
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-const API_URL = `${API_BASE}/api/teams`;
+// Dynamically use Vite env variable or fallback to localhost, safely handling trailing '/api'
+const rawBase = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const cleanBase = rawBase.replace(/\/api\/?$/, ''); // Strip trailing /api if present
+
+const API_URL = `${cleanBase}/api/teams`;
 
 const getAuthHeaders = () => {
   const token = localStorage.getItem('token');
