@@ -12,7 +12,9 @@ import {
   Trash2, 
   AlertTriangle, 
   X, 
-  CheckCircle 
+  CheckCircle,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 
 import { 
@@ -32,7 +34,7 @@ const TeamsNotifications = () => {
   const [syncing, setSyncing] = useState(false);
 
   // Filter States
-  const [fromDate, setFromDate] = useState('2026-08-03');
+  const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [employee, setEmployee] = useState('');
   const [selectedReportGroup, setSelectedReportGroup] = useState('QC Team');
@@ -51,7 +53,7 @@ const TeamsNotifications = () => {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Toast Popup State
+  // Toast Notification State
   const [toast, setToast] = useState(null);
 
   const showToast = (type, message) => {
@@ -128,7 +130,7 @@ const TeamsNotifications = () => {
       showToast('success', `Report posted to ${selectedReportGroup} successfully!`);
       fetchLogs();
     } catch (err) {
-      showToast('error', `Failed to send report. Check webhook configuration.`);
+      showToast('error', `Failed to send report. Check webhook settings.`);
     } finally {
       setReportLoading(false);
     }
@@ -151,13 +153,45 @@ const TeamsNotifications = () => {
     }
   };
 
+  // Helper to format ISO timestamps neatly
+  const formatDateTime = (rawDate) => {
+    if (!rawDate) return '—';
+    const date = new Date(rawDate);
+    if (isNaN(date.getTime())) return String(rawDate);
+    return date.toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  // Smart Pagination range builder (prevents 50 buttons from stretching screen)
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisible = 5;
+    
+    let start = Math.max(1, currentPage - 2);
+    let end = Math.min(totalPages, start + maxVisible - 1);
+
+    if (end - start < maxVisible - 1) {
+      start = Math.max(1, end - maxVisible + 1);
+    }
+
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    return pages;
+  };
+
   return (
-    <div className="p-6 space-y-6 w-full">
+    <div className="p-6 md:p-8 space-y-6 w-full max-w-[1600px] mx-auto text-slate-800">
       
       {/* Toast Notification Popups */}
       {toast && (
-        <div className={`fixed top-5 right-5 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl text-white transition-all animate-bounce ${
-          toast.type === 'success' ? 'bg-emerald-600' : 'bg-rose-600'
+        <div className={`fixed top-5 right-5 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl text-white border transition-all animate-in fade-in slide-in-from-top-4 ${
+          toast.type === 'success' ? 'bg-emerald-600 border-emerald-500' : 'bg-rose-600 border-rose-500'
         }`}>
           {toast.type === 'success' ? <CheckCircle className="w-5 h-5" /> : <AlertTriangle className="w-5 h-5" />}
           <span className="text-sm font-medium">{toast.message}</span>
@@ -167,15 +201,15 @@ const TeamsNotifications = () => {
         </div>
       )}
 
-      {/* Header Action Controls */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 shadow-sm border border-blue-100">
+      {/* ---------------- 1. PAGE HEADER & ACTIONS ---------------- */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm">
+        <div className="flex items-center gap-3.5">
+          <div className="w-11 h-11 rounded-xl bg-blue-600/10 flex items-center justify-center text-blue-600 border border-blue-200/50">
             <Send className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-slate-900">Teams Notifications</h2>
-            <p className="text-xs text-slate-500">Manage, sync, and deliver real-time reports to Microsoft Teams</p>
+            <h2 className="text-xl font-bold text-slate-900 tracking-tight">Teams Notifications</h2>
+            <p className="text-xs text-slate-500 mt-0.5">Manage, sync, and deliver real-time reports to Microsoft Teams</p>
           </div>
         </div>
 
@@ -183,18 +217,18 @@ const TeamsNotifications = () => {
           <button
             onClick={handleManualSync}
             disabled={syncing}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-medium hover:bg-slate-50 disabled:opacity-50 transition shadow-sm"
+            className="flex items-center gap-2 px-3.5 py-2 bg-slate-50 border border-slate-200 text-slate-700 rounded-xl text-xs font-semibold hover:bg-slate-100 disabled:opacity-50 transition shadow-sm"
           >
-            <RefreshCw className={`w-4 h-4 text-slate-500 ${syncing ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 text-slate-500 ${syncing ? 'animate-spin' : ''}`} />
             {syncing ? 'Syncing...' : 'Sync Data'}
           </button>
 
           <div className="relative flex items-center">
-            <Users className="w-4 h-4 absolute left-3.5 text-slate-400 pointer-events-none" />
+            <Users className="w-3.5 h-3.5 absolute left-3 text-slate-400 pointer-events-none" />
             <select
               value={selectedReportGroup}
               onChange={(e) => setSelectedReportGroup(e.target.value)}
-              className="pl-9 pr-8 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-medium hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 transition shadow-sm appearance-none cursor-pointer"
+              className="pl-8 pr-7 py-2 bg-slate-50 border border-slate-200 text-slate-700 rounded-xl text-xs font-semibold hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition shadow-sm appearance-none cursor-pointer"
             >
               <option value="QC Team">QC Team</option>
               <option value="QA Team">QA Team</option>
@@ -206,99 +240,106 @@ const TeamsNotifications = () => {
           <button
             onClick={handleSendReport}
             disabled={reportLoading}
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-medium disabled:opacity-50 transition shadow-sm"
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold disabled:opacity-50 transition shadow-sm"
           >
-            <FileText className="w-4 h-4" />
+            <FileText className="w-3.5 h-3.5" />
             {reportLoading ? 'Posting...' : 'Send Report'}
           </button>
 
           <button
             onClick={() => setIsSettingsOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-medium hover:bg-slate-50 transition shadow-sm"
+            className="flex items-center gap-2 px-3.5 py-2 bg-slate-50 border border-slate-200 text-slate-700 rounded-xl text-xs font-semibold hover:bg-slate-100 transition shadow-sm"
           >
-            <Settings className="w-4 h-4 text-slate-500" />
+            <Settings className="w-3.5 h-3.5 text-slate-500" />
             Settings
           </button>
 
           <button
             onClick={() => setIsTestModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-medium transition shadow-sm"
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold transition shadow-sm"
           >
-            <Send className="w-4 h-4" />
+            <Send className="w-3.5 h-3.5" />
             Send Test
           </button>
         </div>
       </div>
 
-      {/* Search & Filter Toolbar */}
-      <form onSubmit={handleSearch} className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex flex-wrap lg:flex-nowrap items-center gap-3">
-        <div className="flex-1 min-w-[140px]">
+      {/* ---------------- 2. SEARCH & FILTERS TOOLBAR ---------------- */}
+      <form onSubmit={handleSearch} className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex flex-wrap xl:flex-nowrap items-center gap-3">
+        <div className="flex-1 min-w-[150px]">
+          <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">From Date</label>
           <input
             type="date"
             value={fromDate}
             onChange={(e) => setFromDate(e.target.value)}
-            className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition"
+            className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 focus:bg-white focus:ring-2 focus:ring-blue-500/20 outline-none transition"
           />
         </div>
 
-        <div className="flex-1 min-w-[140px]">
+        <div className="flex-1 min-w-[150px]">
+          <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">To Date</label>
           <input
             type="date"
             value={toDate}
             onChange={(e) => setToDate(e.target.value)}
-            placeholder="dd-mm-yyyy"
-            className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition"
+            className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 focus:bg-white focus:ring-2 focus:ring-blue-500/20 outline-none transition"
           />
         </div>
 
-        <div className="flex-1 min-w-[160px] relative">
-          <User className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-purple-400" />
-          <input
-            type="text"
-            placeholder="Employee Name"
-            value={employee}
-            onChange={(e) => setEmployee(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition"
-          />
+        <div className="flex-1 min-w-[170px]">
+          <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Employee</label>
+          <div className="relative">
+            <User className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Employee Name"
+              value={employee}
+              onChange={(e) => setEmployee(e.target.value)}
+              className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-blue-500/20 outline-none transition"
+            />
+          </div>
         </div>
 
-        <div className="flex-1 min-w-[180px] relative">
-          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-purple-400" />
-          <input
-            type="text"
-            placeholder="Mistake Type / Search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition"
-          />
+        <div className="flex-1 min-w-[200px]">
+          <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Search</label>
+          <div className="relative">
+            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Mistake Type / Claim ID..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-blue-500/20 outline-none transition"
+            />
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 pt-4 xl:pt-0">
           <button
             type="submit"
-            className="flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-medium transition shadow-sm"
+            className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold transition shadow-sm"
           >
-            <Search className="w-4 h-4" />
+            <Search className="w-3.5 h-3.5" />
             Search
           </button>
 
           <button
             type="button"
             onClick={handleReset}
-            className="flex items-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-sm font-medium transition"
+            className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-semibold transition"
           >
-            <RotateCcw className="w-4 h-4" />
+            <RotateCcw className="w-3.5 h-3.5" />
             Reset
           </button>
         </div>
       </form>
 
-      {/* Notifications Table */}
+      {/* ---------------- 3. DATA TABLE ---------------- */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-sm">
+          <table className="w-full text-left border-collapse text-xs">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-200/80 text-slate-500 font-semibold text-xs">
+              <tr className="bg-slate-50/80 border-b border-slate-200/80 text-slate-500 font-bold uppercase tracking-wider text-[11px]">
                 <th className="py-3.5 px-4"><div className="flex items-center gap-1">Claim ID <ArrowUpDown className="w-3 h-3 text-slate-400" /></div></th>
                 <th className="py-3.5 px-4"><div className="flex items-center gap-1">Employee Name <ArrowUpDown className="w-3 h-3 text-slate-400" /></div></th>
                 <th className="py-3.5 px-4"><div className="flex items-center gap-1">Mistake Type <ArrowUpDown className="w-3 h-3 text-slate-400" /></div></th>
@@ -307,44 +348,44 @@ const TeamsNotifications = () => {
                 <th className="py-3.5 px-4"><div className="flex items-center gap-1">Teams Group <ArrowUpDown className="w-3 h-3 text-slate-400" /></div></th>
                 <th className="py-3.5 px-4"><div className="flex items-center gap-1">Status <ArrowUpDown className="w-3 h-3 text-slate-400" /></div></th>
                 <th className="py-3.5 px-4"><div className="flex items-center gap-1">Sent At <ArrowUpDown className="w-3 h-3 text-slate-400" /></div></th>
-                <th className="py-3.5 px-4 text-center font-semibold">Action</th>
+                <th className="py-3.5 px-4 text-center">Action</th>
               </tr>
             </thead>
 
             <tbody className="divide-y divide-slate-100 text-slate-700">
               {loading ? (
                 <tr>
-                  <td colSpan="9" className="text-center py-10 text-slate-400">Loading records...</td>
+                  <td colSpan="9" className="text-center py-12 text-slate-400 font-medium">Loading records...</td>
                 </tr>
               ) : notifications.length === 0 ? (
                 <tr>
-                  <td colSpan="9" className="text-center py-10 text-slate-400">No notification logs found.</td>
+                  <td colSpan="9" className="text-center py-12 text-slate-400 font-medium">No notification logs found.</td>
                 </tr>
               ) : (
                 notifications.map((row) => (
-                  <tr key={row.id} className="hover:bg-slate-50/70 transition">
+                  <tr key={row.id} className="hover:bg-slate-50/80 transition">
                     <td className="py-3.5 px-4 font-bold text-slate-900">{row.claim_id}</td>
-                    <td className="py-3.5 px-4 text-slate-600">{row.employee_name}</td>
-                    <td className="py-3.5 px-4 font-medium">{row.mistake_type}</td>
+                    <td className="py-3.5 px-4 text-slate-600 font-medium">{row.employee_name}</td>
+                    <td className="py-3.5 px-4 font-semibold text-slate-800">{row.mistake_type}</td>
                     <td className="py-3.5 px-4 text-slate-500 max-w-xs truncate">{row.description}</td>
-                    <td className="py-3.5 px-4 text-xs text-slate-500">{row.created_date}</td>
-                    <td className="py-3.5 px-4 font-medium">{row.teams_group || 'QC Team'}</td>
-                    <td className="py-3.5 px-4">
-                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
+                    <td className="py-3.5 px-4 text-slate-500 whitespace-nowrap">{formatDateTime(row.created_date || row.created_at)}</td>
+                    <td className="py-3.5 px-4 font-medium text-slate-600">{row.teams_group || 'QC Team'}</td>
+                    <td className="py-3.5 px-4 whitespace-nowrap">
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold ${
                         row.status === 'Sent' 
-                          ? 'bg-emerald-100 text-emerald-700' 
+                          ? 'bg-emerald-100 text-emerald-800' 
                           : row.status === 'Failed' 
-                          ? 'bg-rose-100 text-rose-700' 
-                          : 'bg-amber-100 text-amber-700'
+                          ? 'bg-rose-100 text-rose-800' 
+                          : 'bg-amber-100 text-amber-800'
                       }`}>
                         {row.status || 'Pending'}
                       </span>
                     </td>
-                    <td className="py-3.5 px-4 text-xs text-slate-500">{row.sent_at || '—'}</td>
+                    <td className="py-3.5 px-4 text-slate-500 whitespace-nowrap">{formatDateTime(row.sent_at)}</td>
                     <td className="py-3.5 px-4 text-center">
                       <button
                         onClick={() => setDeleteTarget(row)}
-                        className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition"
+                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
                         title="Delete Record"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -357,28 +398,36 @@ const TeamsNotifications = () => {
           </table>
         </div>
 
-        {/* Pagination Controls */}
+        {/* ---------------- 4. CLEAN PAGINATION FOOTER ---------------- */}
         <div className="p-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
           <div>
-            Showing {totalEntries === 0 ? 0 : (currentPage - 1) * 10 + 1} to {Math.min(currentPage * 10, totalEntries)} of {totalEntries} entries
+            Showing <span className="font-semibold text-slate-800">{totalEntries === 0 ? 0 : (currentPage - 1) * 10 + 1}</span> to <span className="font-semibold text-slate-800">{Math.min(currentPage * 10, totalEntries)}</span> of <span className="font-semibold text-slate-800">{totalEntries}</span> entries
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1">
             <button
               onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
               disabled={currentPage === 1}
-              className="px-3 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 transition font-medium"
+              className="p-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 transition"
             >
-              Previous
+              <ChevronLeft className="w-4 h-4" />
             </button>
 
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+            {/* Render 1st page shortcut if scrolled far */}
+            {currentPage > 3 && totalPages > 5 && (
+              <>
+                <button onClick={() => setCurrentPage(1)} className="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50">1</button>
+                <span className="px-1 text-slate-400">...</span>
+              </>
+            )}
+
+            {getPageNumbers().map((page) => (
               <button
                 key={page}
                 onClick={() => setCurrentPage(page)}
                 className={`px-3 py-1.5 rounded-lg font-semibold transition ${
                   currentPage === page
-                    ? 'bg-blue-600 text-white'
+                    ? 'bg-blue-600 text-white shadow-sm'
                     : 'border border-slate-200 text-slate-600 hover:bg-slate-50'
                 }`}
               >
@@ -386,12 +435,20 @@ const TeamsNotifications = () => {
               </button>
             ))}
 
+            {/* Render Last page shortcut */}
+            {currentPage < totalPages - 2 && totalPages > 5 && (
+              <>
+                <span className="px-1 text-slate-400">...</span>
+                <button onClick={() => setCurrentPage(totalPages)} className="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50">{totalPages}</button>
+              </>
+            )}
+
             <button
               onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
               disabled={currentPage === totalPages || totalPages === 0}
-              className="px-3 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 transition font-medium"
+              className="p-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 transition"
             >
-              Next
+              <ChevronRight className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -413,14 +470,14 @@ const TeamsNotifications = () => {
             <div className="flex items-center gap-3 pt-2">
               <button
                 onClick={() => setDeleteTarget(null)}
-                className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold rounded-xl transition"
+                className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition"
               >
                 Cancel
               </button>
               <button
                 onClick={confirmDelete}
                 disabled={isDeleting}
-                className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold rounded-xl transition shadow-sm"
+                className="flex-1 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold rounded-xl transition shadow-sm"
               >
                 {isDeleting ? 'Deleting...' : 'Delete'}
               </button>
