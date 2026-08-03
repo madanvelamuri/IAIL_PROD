@@ -1,7 +1,7 @@
 const NotificationModel = require('../models/notificationModel');
 const axios = require('axios');
 
-// Helper to format dates into exact DD-MM-YYYY format matching your spreadsheet/dashboard
+// Helper to format dates into exact DD-MM-YYYY format
 const formatDate = (dateStr) => {
   if (!dateStr) return '-';
   const d = new Date(dateStr);
@@ -16,10 +16,9 @@ const formatDate = (dateStr) => {
 
 /**
  * Helper to build valid, clickable public Supabase Storage URLs
- * Aligns with the 'public' subfolder requirement in Supabase Storage RLS.
  */
 const buildSupabaseScreenshotUrl = (rawUrl) => {
-  if (!rawUrl || String(rawUrl).trim() === '' || rawUrl === 'null') {
+  if (!rawUrl || String(rawUrl).trim() === '' || rawUrl === 'null' || rawUrl === 'undefined') {
     return null;
   }
 
@@ -33,7 +32,7 @@ const buildSupabaseScreenshotUrl = (rawUrl) => {
   const SUPABASE_BASE_URL = process.env.SUPABASE_URL || 'https://rzfmcziqenovgvhxgbau.supabase.co';
   const BUCKET_NAME = 'screenshots';
 
-  // 2. Clean leading slashes, backslashes, or bucket prefixes if stored in DB string
+  // 2. Clean leading slashes, backslashes, or bucket prefixes
   let cleanedPath = fullUrl
     .replace(/^\\+/, '')
     .replace(/^\/+/, '')
@@ -44,7 +43,7 @@ const buildSupabaseScreenshotUrl = (rawUrl) => {
     cleanedPath = `public/${cleanedPath}`;
   }
 
-  // 4. Encode filename segments to safely handle spaces and special characters
+  // 4. Encode filename segments safely
   const pathParts = cleanedPath.split('/');
   const encodedPath = pathParts.map(part => encodeURIComponent(part)).join('/');
 
@@ -62,7 +61,7 @@ const generateAndSendTeamsReport = async ({
   employee, 
   search 
 } = {}) => {
-  // 1. Fetch saved Webhook URL for the group
+  // 1. Fetch saved Webhook URL
   const config = await NotificationModel.getWebhookConfig(teamsGroup);
 
   if (!config || !config.webhook_url) {
@@ -90,7 +89,10 @@ const generateAndSendTeamsReport = async ({
     return { success: true, message: 'No records to report.' };
   }
 
-  // 3. Pre-calculate repeated mistake frequencies (Matches Dashboard Logic)
+  // 🔍 DEBUG: Check backend server terminal to verify row properties
+  console.log('--- SAMPLE RECORD FETCHED FOR TEAMS REPORT ---', mistakes[0]);
+
+  // 3. Pre-calculate repeated mistake frequencies
   const repeatedMistakeMap = {};
   mistakes.forEach((m) => {
     const emp = m.employee_name || m.employeename || m.employee || 'Unknown';
@@ -99,7 +101,7 @@ const generateAndSendTeamsReport = async ({
     repeatedMistakeMap[key] = (repeatedMistakeMap[key] || 0) + 1;
   });
 
-  // 4. Build Markdown Table Header using &nbsp; to prevent multiline column title wrapping
+  // 4. Build Markdown Table Header
   let markdownTable = `| Claim ID | Employee Name | Mistake Type | Description | Created&nbsp;Date | Screenshot&nbsp;URL | Repeated |\n`;
   markdownTable += `| :--- | :--- | :--- | :--- | :---: | :---: | :---: |\n`;
 
@@ -109,20 +111,27 @@ const generateAndSendTeamsReport = async ({
     const empName = item.employee_name || item.employeename || item.employee || '-';
     const mistake = item.mistake_type || item.mistaketype || '-';
     
-    // Replace pipe characters in description to keep Markdown table formatting intact
-    let rawDesc = item.description || '-';
-    const desc = rawDesc.replace(/\|/g, '-');
+    // Replace pipe characters in description to prevent Markdown table breakage
+    let rawDesc = item.description || item.desc || '-';
+    const desc = String(rawDesc).replace(/\|/g, '-');
 
     const createdDate = formatDate(item.created_date || item.createdat || item.created_at);
 
-    // Screenshot URL Resolution for Supabase Storage
-    const rawUrl = item.screenshot_url || item.screenshot || item.image_url || item.file_path;
+    // Dynamic key resolution for screenshot URL
+    const rawUrl = 
+      item.screenshot_url || 
+      item.screenshoturl || 
+      item.screenshot || 
+      item.image_url || 
+      item.file_path || 
+      item.filepath;
+
     const resolvedUrl = buildSupabaseScreenshotUrl(rawUrl);
     
-    // Format markdown hyperlinked URL as [View](URL)
+    // Format markdown hyperlinked URL
     const screenshotMarkup = resolvedUrl ? `[View](${resolvedUrl})` : '-';
 
-    // Repeated Calculation (Matches React Dashboard 'Repeated (X)')
+    // Repeated Calculation
     const key = `${empName}_${mistake}`;
     const repeatCount = repeatedMistakeMap[key] || parseInt(item.repeated_count || item.repeat_count || 0, 10);
     
@@ -157,7 +166,6 @@ const generateAndSendTeamsReport = async ({
 
 exports.generateAndSendTeamsReport = generateAndSendTeamsReport;
 
-// Endpoint for manual trigger via UI "Send Report" button
 exports.sendReportNotification = async (req, res) => {
   try {
     const { teamsGroup, fromDate, toDate, employee, search } = req.body;
