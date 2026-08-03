@@ -1,7 +1,7 @@
 const NotificationModel = require('../models/notificationModel');
 const axios = require('axios');
 
-// Helper to format dates into exact DD-MM-YYYY format matching your Dashboard
+// Helper to format dates into exact DD-MM-YYYY format matching your spreadsheet/dashboard
 const formatDate = (dateStr) => {
   if (!dateStr) return '-';
   const d = new Date(dateStr);
@@ -62,33 +62,40 @@ const generateAndSendTeamsReport = async ({
     repeatedMistakeMap[key] = (repeatedMistakeMap[key] || 0) + 1;
   });
 
-  const SERVER_URL = process.env.SERVER_URL || process.env.VITE_API_URL?.replace("/api", "") || 'http://localhost:5000';
+  // Supabase Storage public bucket base
+  const SUPABASE_BASE_URL = process.env.SUPABASE_URL || 'https://rzfmcziqenovgvhxgbau.supabase.co';
+  const BUCKET_NAME = 'screenshots';
 
-  // 4. Build Markdown Table Header matching Dashboard export
-  let markdownTable = `| Claim ID | Employee Name | Mistake Type | Description | Created Date | Screenshot URL | Repeated |\n`;
+  // 4. Build Markdown Table Header using &nbsp; to avoid ugly column title wrapping
+  let markdownTable = `| Claim ID | Employee Name | Mistake Type | Description | Created&nbsp;Date | Screenshot&nbsp;URL | Repeated |\n`;
   markdownTable += `| :--- | :--- | :--- | :--- | :---: | :---: | :---: |\n`;
 
   // 5. Build Table Rows
   mistakes.forEach((item) => {
-    // Determine Claim ID & Employee
     const claimId = item.claim_id || item.claimid || '-';
     const empName = item.employee_name || item.employeename || item.employee || '-';
     const mistake = item.mistake_type || item.mistaketype || '-';
     const desc = item.description || '-';
     const createdDate = formatDate(item.created_date || item.createdat || item.created_at);
 
-    // Screenshot URL Resolution (Matches Dashboard 'View' Hyperlink)
-    const rawUrl = item.screenshot_url || item.screenshot || item.image_url;
+    // Screenshot URL Resolution for Supabase Storage
+    const rawUrl = item.screenshot_url || item.screenshot || item.image_url || item.file_path;
     let screenshotMarkup = '-';
     
     if (rawUrl && String(rawUrl).trim() !== '' && rawUrl !== 'null') {
-      const fullUrl = String(rawUrl).startsWith('http')
-        ? rawUrl
-        : `${SERVER_URL}${String(rawUrl).startsWith('/') ? '' : '/'}${rawUrl}`;
-      screenshotMarkup = `[View](${fullUrl})`;
+      let fullUrl = String(rawUrl).trim();
+
+      if (fullUrl.startsWith('http://') || fullUrl.startsWith('https://')) {
+        screenshotMarkup = `[View](${fullUrl})`;
+      } else {
+        // Strip leading slash or bucket name if stored in DB string
+        const cleanedPath = fullUrl.replace(/^\/?(screenshots\/)?/, '');
+        fullUrl = `${SUPABASE_BASE_URL}/storage/v1/object/public/${BUCKET_NAME}/${cleanedPath}`;
+        screenshotMarkup = `[View](${fullUrl})`;
+      }
     }
 
-    // Repeated Calculation (Exact match to Dashboard: Repeated (X))
+    // Repeated Calculation (Matches React Dashboard 'Repeated (X)')
     const key = `${empName}_${mistake}`;
     const repeatCount = repeatedMistakeMap[key] || parseInt(item.repeated_count || item.repeat_count || 0, 10);
     
