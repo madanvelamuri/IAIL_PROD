@@ -57,3 +57,12 @@ export const sendTestNotification = async (webhookUrl) => {
   const response = await axios.post(`${API_URL}/test`, { webhookUrl }, getAuthHeaders());
   return response.data;
 };
+
+/**
+ * Send custom formatted report (Adaptive Card / Table) to Teams
+ * @param {Object} reportData - Includes group, date range, filters, or specific records to report
+ */
+export const sendReportNotification = async (reportData) => {
+  const response = await axios.post(`${API_URL}/send-report`, reportData, getAuthHeaders());
+  return response.data;
+};
