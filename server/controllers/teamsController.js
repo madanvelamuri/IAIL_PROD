@@ -301,3 +301,14 @@ exports.syncDashboard = async (req, res) => {
     return res.status(500).json({ error: error.message });
   }
 };
+
+exports.deleteNotification = async (req, res) => {
+  try {
+    const { id } = req.params;
+    await NotificationModel.deleteNotification(id);
+    return res.status(200).json({ success: true, message: 'Notification deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting notification:', error.message);
+    return res.status(500).json({ success: false, message: 'Failed to delete notification', error: error.message });
+  }
+};
