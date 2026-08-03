@@ -1,7 +1,7 @@
 const NotificationModel = require('../models/notificationModel');
 const axios = require('axios');
 
-// Helper to format dates into exact DD-MM-YYYY format matching your spreadsheet
+// Helper to format dates into exact DD-MM-YYYY format matching your Dashboard
 const formatDate = (dateStr) => {
   if (!dateStr) return '-';
   const d = new Date(dateStr);
@@ -32,14 +32,14 @@ const generateAndSendTeamsReport = async ({
     throw new Error(`No active MS Teams webhook found for group: ${teamsGroup}`);
   }
 
-  // 2. Fetch mistake records to populate the table
+  // 2. Fetch mistake records from DB
   const { rows: mistakes } = await NotificationModel.getNotifications({
     teamsGroup: teamsGroup !== 'All Groups' ? teamsGroup : undefined,
     fromDate,
     toDate,
     employee,
     search,
-    limit: 20,
+    limit: 50,
     offset: 0
   });
 
@@ -53,44 +53,54 @@ const generateAndSendTeamsReport = async ({
     return { success: true, message: 'No records to report.' };
   }
 
-  const SERVER_URL = process.env.SERVER_URL || 'http://localhost:5000';
+  // 3. Pre-calculate repeated mistake frequencies (Matches Dashboard Logic: employee_name + "_" + mistake_type)
+  const repeatedMistakeMap = {};
+  mistakes.forEach((m) => {
+    const emp = m.employee_name || m.employeename || m.employee || 'Unknown';
+    const type = m.mistake_type || m.mistaketype || 'General';
+    const key = `${emp}_${type}`;
+    repeatedMistakeMap[key] = (repeatedMistakeMap[key] || 0) + 1;
+  });
 
-  // 3. Build Markdown Table Header matching spreadsheet headers exactly
+  const SERVER_URL = process.env.SERVER_URL || process.env.VITE_API_URL?.replace("/api", "") || 'http://localhost:5000';
+
+  // 4. Build Markdown Table Header matching Dashboard export
   let markdownTable = `| Claim ID | Employee Name | Mistake Type | Description | Created Date | Screenshot URL | Repeated |\n`;
   markdownTable += `| :--- | :--- | :--- | :--- | :---: | :---: | :---: |\n`;
 
-  // 4. Build Table Rows
+  // 5. Build Table Rows
   mistakes.forEach((item) => {
-    // Screenshot URL Resolution (Matches sheet 'View' link)
-    const rawUrl = item.screenshot_url || item.screenshot;
+    // Determine Claim ID & Employee
+    const claimId = item.claim_id || item.claimid || '-';
+    const empName = item.employee_name || item.employeename || item.employee || '-';
+    const mistake = item.mistake_type || item.mistaketype || '-';
+    const desc = item.description || '-';
+    const createdDate = formatDate(item.created_date || item.createdat || item.created_at);
+
+    // Screenshot URL Resolution (Matches Dashboard 'View' Hyperlink)
+    const rawUrl = item.screenshot_url || item.screenshot || item.image_url;
     let screenshotMarkup = '-';
     
-    if (rawUrl) {
-      const fullUrl = rawUrl.startsWith('http')
+    if (rawUrl && String(rawUrl).trim() !== '' && rawUrl !== 'null') {
+      const fullUrl = String(rawUrl).startsWith('http')
         ? rawUrl
-        : `${SERVER_URL}${rawUrl.startsWith('/') ? '' : '/'}${rawUrl}`;
+        : `${SERVER_URL}${String(rawUrl).startsWith('/') ? '' : '/'}${rawUrl}`;
       screenshotMarkup = `[View](${fullUrl})`;
     }
 
-    // Repeated Column Logic (Matches sheet 'Repeated (2)' format)
+    // Repeated Calculation (Exact match to Dashboard: Repeated (X))
+    const key = `${empName}_${mistake}`;
+    const repeatCount = repeatedMistakeMap[key] || parseInt(item.repeated_count || item.repeat_count || 0, 10);
+    
     let repeatedMarkup = '-';
-    const count = parseInt(item.repeated_count || item.repeat_count || 0, 10);
-    if (count > 0) {
-      repeatedMarkup = `Repeated (${count})`;
-    } else if (item.repeated === true || item.is_repeated) {
-      repeatedMarkup = 'Repeated';
+    if (repeatCount > 1) {
+      repeatedMarkup = `Repeated (${repeatCount})`;
     }
-
-    const claimId = item.claim_id || '-';
-    const empName = item.employee_name || '-';
-    const mistake = item.mistake_type || '-';
-    const desc = item.description || '-';
-    const createdDate = formatDate(item.created_date);
 
     markdownTable += `| ${claimId} | ${empName} | ${mistake} | ${desc} | ${createdDate} | ${screenshotMarkup} | ${repeatedMarkup} |\n`;
   });
 
-  // 5. Teams MessageCard Payload
+  // 6. MS Teams MessageCard Payload
   const teamsPayload = {
     "@type": "MessageCard",
     "@context": "http://schema.org/extensions",
