@@ -31,8 +31,10 @@ export default function AddMistake() {
     "pavana.r","suneel.pedarasi","priti.chendkale","netravathi.s",
     "ramya.gade","sailakshmi.patarlapalli","shivani.verifier",
     "shruti.bajju","sirisha.pallapu","lipika.behera",
-    "swapna.s","thaslimsulthana.shaik","vasu.nelavelli",
+    "swapna.s","thaslimsulthana.shaik",
     "yashod.tupili","ziaur.verifier","bhuvaneshwari.thatipuri",
+    "alekhya.soma","bhavani.yaka","chakradhar.panchada","divyasai.lakshmi",
+    "latha","neha.sameer","pretticia.malekar","rajani.ravishetty","swati.chougala","zamiruddin.syed","yamini.meditha",
   ];
 
   const mistakeOptions = [
@@ -46,7 +48,7 @@ export default function AddMistake() {
     "Dental Details Not Mentioned","Benefit Details Incorrect",
     "Revenue Description Incorrect",
     "Deduction Incorrectly Done or Not Deducted",
-    "Deduction Done with Incorrect Reason","ICD Incorrect","Secondary ICD-10 Code",
+    "Deduction Done with Incorrect Reason","ICD Incorrect","Secondary ICD-10 Code","Invoice No Incorrect",
   ];
 
   const filteredEmployees = employeeOptions.filter((option) =>
