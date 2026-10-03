@@ -6,19 +6,32 @@ const cors = require("cors");
 const path = require("path");
 const cron = require("node-cron");
 
+// ==========================================
 // ROUTES
+// ==========================================
+
 const authRoutes = require("./routes/authRoutes");
 const mistakeRoutes = require("./routes/mistakeRoutes");
 const teamsRoutes = require("./routes/teamsRoutes");
 const aiRoutes = require("./routes/aiRoutes");
 
+// ==========================================
 // CONTROLLERS
+// ==========================================
+
 const {
   generateAndSendTeamsReport,
 } = require("./controllers/teamsController");
 
+// ==========================================
 // DATABASE MODEL
+// ==========================================
+
 const NotificationModel = require("./models/notificationModel");
+
+// ==========================================
+// EXPRESS APP
+// ==========================================
 
 const app = express();
 
@@ -26,7 +39,7 @@ const app = express();
 // MIDDLEWARE
 // ==========================================
 
-// Configured CORS for production domain flexibility
+// CORS configuration
 const allowedOrigins = [
   process.env.CLIENT_URL,
   "http://localhost:3000",
@@ -36,23 +49,30 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (mobile apps, curl, Postman)
-      if (!origin || allowedOrigins.includes(origin)) {
+      // Allow requests without an origin
+      if (!origin) {
         return callback(null, true);
       }
 
-      // Retained from your existing staging configuration
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      // Retained from your existing staging configuration.
+      // Restrict this before production if public access is not intended.
       return callback(null, true);
     },
     credentials: true,
   })
 );
 
-// Parse incoming requests
-app.use(express.json());
+// Parse JSON requests
+app.use(express.json({ limit: "10mb" }));
+
+// Parse URL-encoded requests
 app.use(express.urlencoded({ extended: true }));
 
-// Serve static uploaded files
+// Serve uploaded files
 app.use(
   "/uploads",
   express.static(path.join(__dirname, "uploads"))
@@ -62,29 +82,44 @@ app.use(
 // API ROUTES
 // ==========================================
 
+// Authentication
 app.use("/api/auth", authRoutes);
 
+// QC Mistake Management
 app.use("/api/mistakes", mistakeRoutes);
 
+// MS Teams Notifications
 app.use("/api/teams", teamsRoutes);
 
-// AI Description Generator
+// Gemini AI Description Generator
 // POST /api/ai/generate-description
 app.use("/api/ai", aiRoutes);
 
 // ==========================================
-// HEALTH CHECK ROUTE
+// HEALTH CHECK ROUTES
 // ==========================================
 
+// Main server health check
 app.get("/", (req, res) => {
-  res.json({
-    message: "IAIL Server Running Successfully 🚀",
-    timestamp: new Date(),
+  res.status(200).json({
+    success: true,
+    message: "IAIL Server Running Successfully",
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// AI route availability check
+app.get("/api/ai/health", (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "Gemini AI Description API route is available.",
+    configured: Boolean(process.env.GEMINI_API_KEY),
   });
 });
 
 // ==========================================
-// CRON JOB: AUTOMATED REPORT AT 6:00 PM IST
+// CRON JOB
+// AUTOMATED MS TEAMS REPORT AT 6:00 PM IST
 // ==========================================
 
 cron.schedule(
@@ -101,7 +136,10 @@ cron.schedule(
         "✅ [Cron Job] Daily report sent successfully to MS Teams!"
       );
     } catch (error) {
-      console.error("[Cron Job Error]:", error.message);
+      console.error(
+        "[Cron Job Error]:",
+        error.message
+      );
     }
   },
   {
@@ -115,14 +153,20 @@ cron.schedule(
 // ==========================================
 
 app.use((err, req, res, next) => {
-  console.error("[Global Error Handler]:", err.stack);
+  console.error("[Global Error Handler]:", {
+    message: err.message,
+    stack:
+      process.env.NODE_ENV === "development"
+        ? err.stack
+        : undefined,
+  });
 
-  res.status(500).json({
-    message: "Internal Server Error",
-    error:
+  res.status(err.status || 500).json({
+    success: false,
+    message:
       process.env.NODE_ENV === "development"
         ? err.message
-        : undefined,
+        : "Internal Server Error",
   });
 });
 
@@ -134,6 +178,8 @@ const PORT = process.env.PORT || 5000;
 
 const startServer = async () => {
   try {
+    console.log("[Server] Starting initialization...");
+
     // 1. Initialize database tables
     await NotificationModel.initTables();
 
@@ -141,8 +187,8 @@ const startServer = async () => {
       "[Database] Schema tables initialized successfully."
     );
 
-    // 2. Sync existing dashboard mistake records
-    // to Teams notifications
+    // 2. Synchronize dashboard records
+    // with Teams notifications
     const syncResult =
       await NotificationModel.syncDashboardData();
 
@@ -156,13 +202,34 @@ const startServer = async () => {
       );
     }
 
-    // 3. Start server
+    // 3. Verify Gemini configuration without exposing the key
+    console.log(
+      `[Gemini] API key configured: ${
+        Boolean(process.env.GEMINI_API_KEY)
+      }`
+    );
+
+    console.log(
+      `[Gemini] Model configured: ${
+        process.env.GEMINI_MODEL || "gemini-3.8-flash"
+      }`
+    );
+
+    // 4. Start Express server
     app.listen(PORT, () => {
-      console.log(`🚀 Server running on port ${PORT}`);
+      console.log("------------------------------------");
+      console.log("🚀 IAIL Backend Started Successfully");
+      console.log(`🌐 Port: ${PORT}`);
+      console.log("🔐 Authentication API: /api/auth");
+      console.log("📋 Mistake API: /api/mistakes");
+      console.log("📢 Teams API: /api/teams");
       console.log(
-        "🤖 AI Description API: /api/ai/generate-description"
+        "🤖 Gemini AI API: /api/ai/generate-description"
       );
+      console.log("🤖 Gemini Health: /api/ai/health");
+      console.log("------------------------------------");
     });
+
   } catch (error) {
     console.error(
       "[Server Startup Error]:",
@@ -173,16 +240,25 @@ const startServer = async () => {
   }
 };
 
-startServer();
-
 // ==========================================
 // PROCESS ERROR HANDLERS
 // ==========================================
 
-process.on("unhandledRejection", (reason, promise) => {
-  console.error("[Unhandled Rejection]:", reason);
+process.on("unhandledRejection", (reason) => {
+  console.error(
+    "[Unhandled Rejection]:",
+    reason
+  );
 });
 
 process.on("uncaughtException", (error) => {
-  console.error("[Uncaught Exception]:", error);
+  console.error(
+    "[Uncaught Exception]:",
+    error
+  );
+
+  process.exit(1);
 });
+
+// Start server
+startServer();
