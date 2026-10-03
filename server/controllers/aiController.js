@@ -1,15 +1,13 @@
 
 // server/controllers/aiController.js
 
-const { GoogleGenAI } = require("@google/genai");
-
 // Generate an AI description for the selected QC mistake type
+
 exports.generateDescription = async (req, res) => {
   try {
-    // 1. Get mistake type from frontend
+    // 1. Validate frontend input
     const { mistakeType } = req.body || {};
 
-    // 2. Validate input
     if (
       typeof mistakeType !== "string" ||
       !mistakeType.trim()
@@ -29,151 +27,188 @@ exports.generateDescription = async (req, res) => {
       });
     }
 
-    // 3. Check Gemini API key
-    const apiKey = process.env.GEMINI_API_KEY;
-
-    if (!apiKey) {
-      console.error("[Gemini] API key is not configured.");
-
+    // 2. Check Gemini API key
+    if (!process.env.GEMINI_API_KEY) {
       return res.status(503).json({
         success: false,
         message: "Gemini API key is not configured.",
       });
     }
 
-    // 4. Initialize Gemini
+    // 3. Import Gemini SDK
+    const { GoogleGenAI } = await import("@google/genai");
+
     const ai = new GoogleGenAI({
-      apiKey,
+      apiKey: process.env.GEMINI_API_KEY,
     });
 
-    // 5. Select Gemini model
-    const model =
+    // 4. Configure primary and fallback models
+    const primaryModel =
       process.env.GEMINI_MODEL || "gemini-3.8-flash";
 
-    // 6. Generate AI description
-    const response = await ai.models.generateContent({
-      model,
+    const fallbackModels = (
+      process.env.GEMINI_FALLBACK_MODELS ||
+      "gemini-3.7-flash,gemini-3.6-flash"
+    )
+      .split(",")
+      .map((model) => model.trim())
+      .filter(Boolean);
 
-      contents: `
-        Selected QC Mistake Type: ${cleanMistakeType}
+    const models = [
+      ...new Set([primaryModel, ...fallbackModels]),
+    ];
 
-        Generate a professional QC description.
-      `,
+    // 5. Prepare QC instructions
+    const instructions = `
+      You are an experienced Quality Control (QC) assistant
+      working in a healthcare claims processing department.
 
-      config: {
-        systemInstruction: `
-          You are an experienced Quality Control (QC) assistant
-          working in a healthcare claims processing department.
+      Generate a professional description based on the
+      selected QC mistake category.
 
-          Your task is to generate a professional description
-          based on the selected QC mistake category.
+      Follow these rules:
 
-          Follow these rules:
+      1. Write in simple, professional English.
+      2. Generate one or two clear sentences.
+      3. Explain the mistake type in a QC context.
+      4. Do not invent claim details.
+      5. Do not invent patient information.
+      6. Do not invent ICD codes or medical information.
+      7. Do not assume a particular claim was actually
+         processed incorrectly.
+      8. Do not include headings or bullet points.
+      9. Return only the description.
+      10. Keep it suitable for a QC mistake report.
+    `;
 
-          1. Write in simple, professional English.
-          2. Generate one or two clear sentences.
-          3. Explain the type of mistake in a QC context.
-          4. Do not invent claim details.
-          5. Do not invent patient information.
-          6. Do not invent ICD codes or medical information.
-          7. Do not assume that a particular claim was actually
-             processed incorrectly.
-          8. Do not include headings or bullet points.
-          9. Return only the description.
-          10. Keep the description suitable for a QC mistake report.
-        `,
+    // 6. Try models one by one
+    let lastError = null;
 
-        temperature: 0.3,
-        maxOutputTokens: 120,
-      },
-    });
+    for (const model of models) {
+      try {
+        console.log(`[Gemini] Trying model: ${model}`);
 
-    // 7. Extract generated description
-    const description = response.text?.trim();
+        const response = await ai.models.generateContent({
+          model,
 
-    if (!description) {
-      console.error(
-        "[Gemini] Empty description returned by the model."
-      );
+          contents: `
+            ${instructions}
 
-      return res.status(502).json({
-        success: false,
-        message:
-          "Gemini could not generate a description. Please retry.",
-      });
+            Selected QC Mistake Type: ${cleanMistakeType}
+
+            Generate a professional QC description.
+          `,
+
+          config: {
+            maxOutputTokens: 120,
+          },
+        });
+
+        const description = response.text?.trim();
+
+        if (!description) {
+          throw new Error(
+            `Model ${model} returned an empty response.`
+          );
+        }
+
+        console.log(
+          `[Gemini] Description generated successfully using ${model}`
+        );
+
+        return res.status(200).json({
+          success: true,
+          description,
+          modelUsed: model,
+        });
+
+      } catch (error) {
+        lastError = error;
+
+        // Extract status from SDK error
+        let status = Number(
+          error.status || error.statusCode || 0
+        );
+
+        // Some SDK errors contain JSON inside error.message
+        if (!status && typeof error.message === "string") {
+          try {
+            const parsed = JSON.parse(error.message);
+
+            status = Number(
+              parsed.error?.code ||
+              parsed.code ||
+              0
+            );
+          } catch {
+            // Keep original error if message is not JSON
+          }
+        }
+
+        console.error(
+          `[Gemini] Model ${model} failed:`,
+          {
+            status,
+            message: error.message,
+          }
+        );
+
+        // Retry using another model only for
+        // temporary availability or rate-limit errors.
+        if (status === 503 || status === 429) {
+          console.log(
+            `[Gemini] Switching from ${model} to the next fallback model.`
+          );
+
+          continue;
+        }
+
+        // Authentication, permission, model and
+        // other configuration errors should not be hidden.
+        if (status === 401 || status === 403) {
+          return res.status(503).json({
+            success: false,
+            message:
+              "Gemini authentication failed. Check API key and permissions.",
+          });
+        }
+
+        if (status === 404) {
+          return res.status(503).json({
+            success: false,
+            message:
+              `Gemini model ${model} is unavailable. Check model configuration.`,
+          });
+        }
+
+        // Unexpected error
+        break;
+      }
     }
 
-    // 8. Send response to frontend
-    return res.status(200).json({
-      success: true,
-      description,
+    // 7. All available models failed
+    console.error("[Gemini] All model attempts failed:", {
+      message: lastError?.message,
+      status: lastError?.status,
+    });
+
+    return res.status(503).json({
+      success: false,
+      message:
+        "Gemini AI is temporarily unavailable. Please try again later.",
     });
 
   } catch (error) {
-    // 9. Log error details without exposing API credentials
-    console.error("[Gemini Description Error]:", {
+    // 8. General error handling
+    console.error("[Gemini Controller Error]:", {
       message: error.message,
       status: error.status,
-      statusCode: error.statusCode,
       code: error.code,
     });
 
-    const status = Number(
-      error.status || error.statusCode
-    );
-
-    const errorCode = String(
-      error.code || ""
-    ).toUpperCase();
-
-    const errorMessage = String(
-      error.message || ""
-    ).toLowerCase();
-
-    // Invalid API key or permission issue
-    if (
-      status === 401 ||
-      status === 403 ||
-      errorCode.includes("PERMISSION_DENIED") ||
-      errorMessage.includes("api key not valid")
-    ) {
-      return res.status(503).json({
-        success: false,
-        message:
-          "Gemini API authentication failed. Please check your API key and permissions.",
-      });
-    }
-
-    // Usage limit or quota exceeded
-    if (
-      status === 429 ||
-      errorCode.includes("RESOURCE_EXHAUSTED") ||
-      errorMessage.includes("quota")
-    ) {
-      return res.status(429).json({
-        success: false,
-        message:
-          "Gemini API usage limit reached. Please check your API quota and billing.",
-      });
-    }
-
-    // Invalid or unavailable model
-    if (
-      status === 404 ||
-      errorCode.includes("NOT_FOUND")
-    ) {
-      return res.status(503).json({
-        success: false,
-        message:
-          "Gemini model is unavailable. Please check your GEMINI_MODEL configuration.",
-      });
-    }
-
-    // General server error
     return res.status(500).json({
       success: false,
-      message:
-        "Failed to generate AI description. Please try again later.",
+      message: "Failed to generate AI description.",
     });
   }
 };
