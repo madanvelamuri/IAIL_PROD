@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "@google/genai": "^2.27.0",
     "sweetalert2": "^11.26.22"
   }
 }
