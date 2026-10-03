@@ -16,6 +16,9 @@ export default function AddMistake() {
   const [preview, setPreview] = useState(null);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiGenerated, setAiGenerated] = useState(false);
+  const [aiError, setAiError] = useState("");
 
   const [showEmployeeSuggestions, setShowEmployeeSuggestions] = useState(false);
   const [showMistakeSuggestions, setShowMistakeSuggestions] = useState(false);
@@ -135,6 +138,38 @@ export default function AddMistake() {
     }
   }, [message]);
 
+  const generateAIDescription = async (mistakeType = form.mistake_type) => {
+    if (!mistakeType || !mistakeType.trim()) {
+      setAiError("Select a mistake type first.");
+      return;
+    }
+
+    setAiLoading(true);
+    setAiError("");
+
+    try {
+      // Only the mistake category is sent to AI. No claim, employee,
+      // patient, medical-record, or screenshot data is sent.
+      const response = await API.post("/ai/generate-description", {
+        mistakeType: mistakeType.trim(),
+      });
+      const generated = response?.data?.description?.trim();
+      if (!generated) throw new Error("AI returned an empty description.");
+
+      setForm((prev) => ({ ...prev, description: generated }));
+      setAiGenerated(true);
+    } catch (error) {
+      console.error("AI description generation failed:", error);
+      setAiError(
+        error?.response?.data?.message ||
+        "Could not generate an AI description. Please try again or enter it manually."
+      );
+      setAiGenerated(false);
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
 
     e.preventDefault();
@@ -175,6 +210,8 @@ export default function AddMistake() {
       });
 
       setPreview(null);
+      setAiGenerated(false);
+      setAiError("");
 
     } catch (err) {
       console.error(err);
@@ -249,7 +286,13 @@ export default function AddMistake() {
               placeholder="Mistake Type"
               value={form.mistake_type}
               onChange={(e) => {
-                setForm({ ...form, mistake_type: e.target.value });
+                setForm((prev) => ({
+                  ...prev,
+                  mistake_type: e.target.value,
+                  description: "",
+                }));
+                setAiGenerated(false);
+                setAiError("");
                 setShowMistakeSuggestions(true);
               }}
               onFocus={() => setShowMistakeSuggestions(true)}
@@ -264,8 +307,15 @@ export default function AddMistake() {
                     key={index}
                     onMouseDown={(e) => {
                       e.preventDefault();
-                      setForm({ ...form, mistake_type: option });
+                      setForm((prev) => ({
+                        ...prev,
+                        mistake_type: option,
+                        description: "",
+                      }));
+                      setAiGenerated(false);
+                      setAiError("");
                       setShowMistakeSuggestions(false);
+                      generateAIDescription(option);
                     }}
                     className="px-5 py-3 hover:bg-cyan-500/20 cursor-pointer transition"
                   >
@@ -292,17 +342,62 @@ export default function AddMistake() {
             </label>
           </div>
 
-          {/* Description */}
-          <textarea
-            placeholder="Description"
-            value={form.description}
-            onChange={(e) =>
-              setForm({ ...form, description: e.target.value })
-            }
-            rows="4"
-            className="w-full bg-white/10 border border-white/20 rounded-2xl px-5 py-4 text-white placeholder-white/50 focus:ring-2 focus:ring-cyan-400 outline-none transition resize-none"
-            required
-          />
+          {/* AI-generated, editable description */}
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <label className="text-sm font-semibold text-white/80">
+                Description
+                {aiGenerated && (
+                  <span className="ml-2 text-xs font-medium text-emerald-400">
+                    AI draft generated — please review
+                  </span>
+                )}
+              </label>
+
+              <button
+                type="button"
+                onClick={() => generateAIDescription()}
+                disabled={aiLoading || !form.mistake_type.trim()}
+                className="inline-flex items-center gap-2 rounded-xl border border-cyan-400/40 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-300 hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {aiLoading ? (
+                  <>
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-cyan-300 border-t-transparent" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <span aria-hidden="true">✦</span>
+                    {aiGenerated ? "Regenerate AI Description" : "Generate AI Description"}
+                  </>
+                )}
+              </button>
+            </div>
+
+            <textarea
+              placeholder="Select a mistake type to generate a description, or enter it manually..."
+              value={form.description}
+              onChange={(e) => {
+                setForm((prev) => ({ ...prev, description: e.target.value }));
+                setAiGenerated(false);
+              }}
+              rows="4"
+              maxLength={1500}
+              className="w-full bg-white/10 border border-white/20 rounded-2xl px-5 py-4 text-white placeholder-white/50 focus:ring-2 focus:ring-cyan-400 outline-none transition resize-none"
+              required
+            />
+
+            <div className="flex items-center justify-between text-xs text-white/50">
+              <span>AI text is a draft. Verify it against the actual claim evidence before submitting.</span>
+              <span>{form.description.length}/1500</span>
+            </div>
+
+            {aiError && (
+              <p className="rounded-xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+                {aiError}
+              </p>
+            )}
+          </div>
 
           {/* Screenshot */}
           <div className={`bg-white/5 border rounded-2xl p-6 transition-colors ${form.is_verification && !form.screenshot ? 'border-amber-500/50' : 'border-white/10'}`}>
