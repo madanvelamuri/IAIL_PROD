@@ -64,10 +64,12 @@ const mistakeDescriptions = {
     "The ICD code displayed in the UI does not match the diagnosis or ICD code mentioned in the claim form. Review the claim form and UI side by side, verify the documented diagnosis and update the UI with the matching ICD code as per the claim form.",
 
   "Secondary ICD-10 Code incorrect":
-    "The secondary ICD-10 code displayed in the UI does not match the secondary diagnosis documented in the claim form or medical records. Review the secondary diagnosis and compare the code in the claim form with the UI. Update the UI with the correct matching secondary ICD-10 code."
+    "The secondary ICD-10 code displayed in the UI does not match the secondary diagnosis documented in the claim form or medical records. Review the claim form and UI side by side, verify every secondary diagnosis and its corresponding ICD-10 code, and update the UI with the exact matching code(s) supported by the claim form. Also check whether any additional secondary or tertiary codes documented in the claim form have been missed.",
+
+  "Tariff – Missing or Incorrect":
+    "The tariff has not been correctly identified or selected for the claim. First, review the bill particulars and correct the particular names in the OC Mapping column based on the invoice and supporting documents. After correcting the particular names, click the 'Compare Tariff' button and review the tariff results presented for the relevant hospital or provider. Do not manually select 'Not Found' when a tariff is available in the comparison results. If the tariff is presented for a different provider or hospital, verify the provider/hospital mapping and select the tariff applicable to the claim. Before completing the claim, confirm that the particular name, provider/hospital and tariff selection match the supporting documents and the available tariff results."
 };
 
-// Conditions for mistake types that can have different explanations.
 export const mistakeConditions = {
   "Gender Not Mentiond or Incorrect": {
     Missing:
@@ -86,8 +88,6 @@ export const mistakeConditions = {
   }
 };
 
-// Normalize mistake types to handle extra spaces, case differences
-// and the existing "Mentiond" spelling.
 export const normalizeMistakeType = (value = "") =>
   String(value)
     .trim()
@@ -96,7 +96,6 @@ export const normalizeMistakeType = (value = "") =>
     .replace(/\bmentiond\b/g, "mentioned")
     .replace(/\s+/g, " ");
 
-// Normalize all description keys.
 const normalizedDescriptions = Object.fromEntries(
   Object.entries(mistakeDescriptions).map(([type, description]) => [
     normalizeMistakeType(type),
@@ -104,7 +103,6 @@ const normalizedDescriptions = Object.fromEntries(
   ])
 );
 
-// Normalize condition-based descriptions.
 const normalizedConditions = Object.fromEntries(
   Object.entries(mistakeConditions).map(([type, conditions]) => [
     normalizeMistakeType(type),
@@ -112,7 +110,6 @@ const normalizedConditions = Object.fromEntries(
   ])
 );
 
-// Get the available conditions for a mistake type.
 export const getMistakeConditions = (mistakeType) => {
   if (!mistakeType) return [];
 
@@ -121,24 +118,16 @@ export const getMistakeConditions = (mistakeType) => {
   return conditions ? Object.keys(conditions) : [];
 };
 
-// Generate the appropriate description.
-export const generateMistakeDescription = (
-  mistakeType,
-  condition = ""
-) => {
+export const generateMistakeDescription = (mistakeType, condition = "") => {
   if (!mistakeType) return "";
 
   const normalizedType = normalizeMistakeType(mistakeType);
-
   const conditions = normalizedConditions[normalizedType];
 
-  // Return the selected condition description.
   if (conditions) {
-    if (!condition || !conditions[condition]) return "";
-    return conditions[condition];
+    return condition && conditions[condition] ? conditions[condition] : "";
   }
 
-  // Return the standard description.
   return normalizedDescriptions[normalizedType] || "";
 };
 

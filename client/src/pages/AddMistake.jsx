@@ -97,7 +97,8 @@ export default function AddMistake() {
     "Deduction Incorrectly Done or Not Deducted",
     "Deduction Done with Incorrect Reason",
     "ICD Incorrect",
-    "Secondary ICD-10 Code incorrect"
+    "Secondary ICD-10 Code incorrect",
+    "Tariff – Missing or Incorrect"
   ];
 
   const filteredEmployees = employeeOptions.filter((option) =>
