@@ -1,9 +1,9 @@
-
 import React, { useState, useRef, useEffect } from "react";
 import API from "../services/api";
 import Swal from "sweetalert2";
 import {
   generateMistakeDescription,
+  getMistakeConditions,
   normalizeMistakeType
 } from "../utils/mistakeDescriptions";
 
@@ -20,16 +20,15 @@ export default function AddMistake() {
   const [preview, setPreview] = useState(null);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [mistakeCondition, setMistakeCondition] = useState("");
 
-  const [showEmployeeSuggestions, setShowEmployeeSuggestions] =
-    useState(false);
-
-  const [showMistakeSuggestions, setShowMistakeSuggestions] =
-    useState(false);
+  const [showEmployeeSuggestions, setShowEmployeeSuggestions] = useState(false);
+  const [showMistakeSuggestions, setShowMistakeSuggestions] = useState(false);
 
   const employeeRef = useRef(null);
   const mistakeRef = useRef(null);
   const fileInputRef = useRef(null);
+  const previewUrlRef = useRef(null);
 
   // Employee suggestions
   const employeeOptions = [
@@ -76,7 +75,6 @@ export default function AddMistake() {
   ];
 
   // Mistake type suggestions
-  // Duplicate "Invoice No Incorrect" removed.
   const mistakeOptions = [
     "Primary ICD-10 Code incorrect",
     "Optical Details Not added",
@@ -102,112 +100,127 @@ export default function AddMistake() {
     "Secondary ICD-10 Code incorrect"
   ];
 
-  // Filter employee suggestions
   const filteredEmployees = employeeOptions.filter((option) =>
     option.toLowerCase().includes(form.employee_name.toLowerCase())
   );
 
-  // Filter mistake suggestions
   const filteredMistakes = mistakeOptions.filter((option) =>
     normalizeMistakeType(option).includes(
       normalizeMistakeType(form.mistake_type)
     )
   );
 
-  // Select a mistake type and automatically generate its description.
+  const requiredConditions = getMistakeConditions(form.mistake_type);
+
+  const replacePreview = (file) => {
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current);
+    }
+
+    if (!file) {
+      previewUrlRef.current = null;
+      setPreview(null);
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(file);
+    previewUrlRef.current = objectUrl;
+    setPreview(objectUrl);
+  };
+
   const selectMistakeType = (mistakeType) => {
+    const conditions = getMistakeConditions(mistakeType);
+
+    setMistakeCondition("");
     setForm((prev) => ({
       ...prev,
       mistake_type: mistakeType,
-      description: generateMistakeDescription(mistakeType)
+      // Conditional categories wait until Missing/Incorrect is selected.
+      description: conditions.length
+        ? ""
+        : generateMistakeDescription(mistakeType)
     }));
 
     setShowMistakeSuggestions(false);
   };
 
+  const handleMistakeConditionChange = (condition) => {
+    setMistakeCondition(condition);
+    setForm((prev) => ({
+      ...prev,
+      description: generateMistakeDescription(prev.mistake_type, condition)
+    }));
+  };
+
   // Close suggestions when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (
-        employeeRef.current &&
-        !employeeRef.current.contains(event.target)
-      ) {
+      if (employeeRef.current && !employeeRef.current.contains(event.target)) {
         setShowEmployeeSuggestions(false);
       }
 
-      if (
-        mistakeRef.current &&
-        !mistakeRef.current.contains(event.target)
-      ) {
+      if (mistakeRef.current && !mistakeRef.current.contains(event.target)) {
         setShowMistakeSuggestions(false);
       }
     };
 
     document.addEventListener("mousedown", handleClickOutside);
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   // Paste screenshot directly from clipboard
   useEffect(() => {
     const handlePaste = (event) => {
       const items = event.clipboardData?.items;
-
       if (!items) return;
 
-      for (let i = 0; i < items.length; i++) {
-        if (items[i].type.indexOf("image") !== -1) {
+      for (let i = 0; i < items.length; i += 1) {
+        if (items[i].type.includes("image")) {
           const blob = items[i].getAsFile();
-
           if (!blob) continue;
 
           const file = new File(
             [blob],
             `pasted-${Date.now()}.png`,
-            { type: blob.type }
+            { type: blob.type || "image/png" }
           );
 
-          setForm((prev) => ({
-            ...prev,
-            screenshot: file
-          }));
-
-          setPreview(URL.createObjectURL(file));
+          setForm((prev) => ({ ...prev, screenshot: file }));
+          replacePreview(file);
           setMessage("Screenshot pasted successfully!");
-
           break;
         }
       }
     };
 
     window.addEventListener("paste", handlePaste);
+    return () => window.removeEventListener("paste", handlePaste);
+  }, []);
 
+  // Clean up the temporary screenshot preview URL.
+  useEffect(() => {
     return () => {
-      window.removeEventListener("paste", handlePaste);
+      if (previewUrlRef.current) {
+        URL.revokeObjectURL(previewUrlRef.current);
+      }
     };
   }, []);
 
   // Display success and error messages
   useEffect(() => {
-    if (!message) return;
+    if (!message) return undefined;
 
     Swal.fire({
-      icon: message.includes("successfully") ? "success" : "error",
-      title: message.includes("successfully") ? "Success" : "Error",
+      icon: message.toLowerCase().includes("successfully") ? "success" : "error",
+      title: message.toLowerCase().includes("successfully") ? "Success" : "Error",
       text: message,
       background: "#0f172a",
       color: "#ffffff",
       confirmButtonColor: "#22c55e",
-      backdrop: `
-        rgba(0,0,0,0.8)
-        blur(6px)
-      `
+      backdrop: "rgba(0,0,0,0.8)"
     });
 
     const timer = setTimeout(() => setMessage(""), 3000);
-
     return () => clearTimeout(timer);
   }, [message]);
 
@@ -230,15 +243,18 @@ export default function AddMistake() {
       return;
     }
 
+    if (requiredConditions.length > 0 && !mistakeCondition) {
+      setMessage("Error: Please select whether the mistake is Missing or Incorrect.");
+      return;
+    }
+
     if (!form.description.trim()) {
       setMessage("Error: Please enter the Description.");
       return;
     }
 
     if (form.is_verification && !form.screenshot) {
-      setMessage(
-        "Error: Screenshot is mandatory for Verification Claims."
-      );
+      setMessage("Error: Screenshot is mandatory for Verification Claims.");
       return;
     }
 
@@ -247,7 +263,6 @@ export default function AddMistake() {
 
     try {
       const data = new FormData();
-
       data.append("claim_id", form.claim_id.trim());
       data.append("employee_name", form.employee_name.trim());
       data.append("mistake_type", form.mistake_type.trim());
@@ -271,7 +286,8 @@ export default function AddMistake() {
         is_verification: false
       });
 
-      setPreview(null);
+      setMistakeCondition("");
+      replacePreview(null);
 
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
@@ -281,10 +297,8 @@ export default function AddMistake() {
       setShowMistakeSuggestions(false);
     } catch (error) {
       console.error("Mistake submission failed:", error);
-
       setMessage(
-        error?.response?.data?.message ||
-        "Error submitting mistake."
+        error?.response?.data?.message || "Error submitting mistake."
       );
     } finally {
       setLoading(false);
@@ -293,25 +307,19 @@ export default function AddMistake() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-6">
-
       <div className="w-full max-w-3xl backdrop-blur-2xl bg-white/5 border border-white/10 rounded-3xl p-12 shadow-[0_20px_60px_rgba(0,0,0,0.6)] text-white">
-
         <h2 className="text-4xl font-extrabold mb-10 text-center bg-gradient-to-r from-cyan-400 to-teal-400 bg-clip-text text-transparent">
           Add QC Mistake
         </h2>
 
         <form onSubmit={handleSubmit} className="space-y-7">
-
           {/* Claim ID */}
           <input
             type="text"
             placeholder="Claim ID"
             value={form.claim_id}
             onChange={(event) =>
-              setForm((prev) => ({
-                ...prev,
-                claim_id: event.target.value
-              }))
+              setForm((prev) => ({ ...prev, claim_id: event.target.value }))
             }
             className="w-full bg-white/10 border border-white/20 rounded-2xl px-5 py-4 text-white placeholder-white/50 focus:ring-2 focus:ring-cyan-400 outline-none transition"
             required
@@ -328,7 +336,6 @@ export default function AddMistake() {
                   ...prev,
                   employee_name: event.target.value
                 }));
-
                 setShowEmployeeSuggestions(true);
               }}
               onFocus={() => setShowEmployeeSuggestions(true)}
@@ -336,31 +343,23 @@ export default function AddMistake() {
               required
             />
 
-            {showEmployeeSuggestions &&
-              filteredEmployees.length > 0 && (
-                <div className="absolute z-50 mt-3 w-full bg-slate-900/95 border border-white/10 rounded-2xl shadow-xl max-h-52 overflow-y-auto">
-
-                  {filteredEmployees.map((option) => (
-                    <div
-                      key={option}
-                      onMouseDown={(event) => {
-                        event.preventDefault();
-
-                        setForm((prev) => ({
-                          ...prev,
-                          employee_name: option
-                        }));
-
-                        setShowEmployeeSuggestions(false);
-                      }}
-                      className="px-5 py-3 hover:bg-cyan-500/20 cursor-pointer transition"
-                    >
-                      {option}
-                    </div>
-                  ))}
-
-                </div>
-              )}
+            {showEmployeeSuggestions && filteredEmployees.length > 0 && (
+              <div className="absolute z-50 mt-3 w-full bg-slate-900/95 border border-white/10 rounded-2xl shadow-xl max-h-52 overflow-y-auto">
+                {filteredEmployees.map((option) => (
+                  <div
+                    key={option}
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      setForm((prev) => ({ ...prev, employee_name: option }));
+                      setShowEmployeeSuggestions(false);
+                    }}
+                    className="px-5 py-3 hover:bg-cyan-500/20 cursor-pointer transition"
+                  >
+                    {option}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Mistake Type */}
@@ -371,28 +370,24 @@ export default function AddMistake() {
               value={form.mistake_type}
               onChange={(event) => {
                 const value = event.target.value;
-
+                setMistakeCondition("");
                 setForm((prev) => ({
                   ...prev,
                   mistake_type: value,
                   description: ""
                 }));
-
                 setShowMistakeSuggestions(true);
               }}
               onFocus={() => setShowMistakeSuggestions(true)}
-              onBlur={() => {
-                // If the user types the complete category manually,
-                // match it and generate its description automatically.
+              onBlur={(event) => {
+                const typedValue = event.currentTarget.value;
                 const matchedOption = mistakeOptions.find(
                   (option) =>
                     normalizeMistakeType(option) ===
-                    normalizeMistakeType(form.mistake_type)
+                    normalizeMistakeType(typedValue)
                 );
 
-                if (matchedOption) {
-                  selectMistakeType(matchedOption);
-                }
+                if (matchedOption) selectMistakeType(matchedOption);
               }}
               onKeyDown={(event) => {
                 if (event.key === "Enter" && filteredMistakes.length > 0) {
@@ -404,36 +399,60 @@ export default function AddMistake() {
               required
             />
 
-            {showMistakeSuggestions &&
-              filteredMistakes.length > 0 && (
-                <div className="absolute z-50 mt-3 w-full bg-slate-900/95 border border-white/10 rounded-2xl shadow-xl max-h-52 overflow-y-auto">
-
-                  {filteredMistakes.map((option) => (
-                    <div
-                      key={option}
-                      onMouseDown={(event) => {
-                        event.preventDefault();
-                        selectMistakeType(option);
-                      }}
-                      className="px-5 py-3 hover:bg-cyan-500/20 cursor-pointer transition"
-                    >
-                      {option}
-                    </div>
-                  ))}
-
-                </div>
-              )}
+            {showMistakeSuggestions && filteredMistakes.length > 0 && (
+              <div className="absolute z-50 mt-3 w-full bg-slate-900/95 border border-white/10 rounded-2xl shadow-xl max-h-52 overflow-y-auto">
+                {filteredMistakes.map((option) => (
+                  <div
+                    key={option}
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      selectMistakeType(option);
+                    }}
+                    className="px-5 py-3 hover:bg-cyan-500/20 cursor-pointer transition"
+                  >
+                    {option}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
+
+          {/* Condition selector for categories with Missing/Incorrect variants */}
+          {requiredConditions.length > 0 && (
+            <div className="space-y-2">
+              <label
+                htmlFor="mistake-condition"
+                className="block text-sm font-semibold text-white/80"
+              >
+                Select Condition <span className="text-rose-400">*</span>
+              </label>
+              <select
+                id="mistake-condition"
+                value={mistakeCondition}
+                onChange={(event) =>
+                  handleMistakeConditionChange(event.target.value)
+                }
+                required
+                className="w-full bg-slate-900 border border-white/20 rounded-2xl px-5 py-4 text-white focus:ring-2 focus:ring-cyan-400 outline-none"
+              >
+                <option value="">Select Condition</option>
+                {requiredConditions.map((condition) => (
+                  <option key={condition} value={condition}>
+                    {condition}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-white/50">
+                Choose whether the information is missing or the entered
+                information is incorrect.
+              </p>
+            </div>
+          )}
 
           {/* Claim Type */}
           <div className="flex items-center gap-6 bg-white/5 border border-white/10 rounded-2xl p-5">
-
-            <span className="text-sm text-white/70">
-              Claim Type:
-            </span>
-
+            <span className="text-sm text-white/70">Claim Type:</span>
             <label className="flex items-center gap-2 cursor-pointer group">
-
               <input
                 type="checkbox"
                 checked={form.is_verification}
@@ -445,7 +464,6 @@ export default function AddMistake() {
                 }
                 className="w-5 h-5 accent-cyan-500 bg-white/10 border-white/20 rounded cursor-pointer"
               />
-
               <span
                 className={`text-sm transition ${
                   form.is_verification
@@ -455,16 +473,16 @@ export default function AddMistake() {
               >
                 Verification Claim (Mandatory Screenshot)
               </span>
-
             </label>
           </div>
 
           {/* Automatically generated, editable description */}
           <div className="space-y-3">
-
             <div className="flex flex-wrap items-center justify-between gap-3">
-
-              <label className="text-sm font-semibold text-white/80">
+              <label
+                htmlFor="mistake-description"
+                className="text-sm font-semibold text-white/80"
+              >
                 Description
                 {form.description && (
                   <span className="ml-2 text-xs font-medium text-emerald-400">
@@ -472,11 +490,15 @@ export default function AddMistake() {
                   </span>
                 )}
               </label>
-
             </div>
 
             <textarea
-              placeholder="Select a mistake type to generate a description, or enter it manually..."
+              id="mistake-description"
+              placeholder={
+                requiredConditions.length > 0 && !mistakeCondition
+                  ? "Select Missing or Incorrect to generate the description..."
+                  : "Select a mistake type to generate a description, or enter it manually..."
+              }
               value={form.description}
               onChange={(event) =>
                 setForm((prev) => ({
@@ -491,17 +513,12 @@ export default function AddMistake() {
             />
 
             <div className="flex items-center justify-between text-xs text-white/50">
-
               <span>
-                Automatically generated description can be edited before submission.
+                Automatically generated description can be edited before
+                submission.
               </span>
-
-              <span>
-                {form.description.length}/1500
-              </span>
-
+              <span>{form.description.length}/1500</span>
             </div>
-
           </div>
 
           {/* Screenshot Upload */}
@@ -512,13 +529,10 @@ export default function AddMistake() {
                 : "border-white/10"
             }`}
           >
-
             <label className="block mb-3 text-sm text-white/70">
               Upload Screenshot{" "}
               {form.is_verification ? (
-                <span className="text-amber-400 font-bold">
-                  (MANDATORY)
-                </span>
+                <span className="text-amber-400 font-bold">(MANDATORY)</span>
               ) : (
                 "(Optional)"
               )}
@@ -530,15 +544,10 @@ export default function AddMistake() {
               accept="image/*"
               onChange={(event) => {
                 const file = event.target.files?.[0];
-
                 if (!file) return;
 
-                setForm((prev) => ({
-                  ...prev,
-                  screenshot: file
-                }));
-
-                setPreview(URL.createObjectURL(file));
+                setForm((prev) => ({ ...prev, screenshot: file }));
+                replacePreview(file);
               }}
               className="block w-full text-sm text-white file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-cyan-500 file:text-slate-900 file:font-semibold hover:file:bg-cyan-600 transition"
             />
@@ -549,47 +558,35 @@ export default function AddMistake() {
 
             {preview && (
               <div className="mt-4 flex items-center gap-4">
-
-                {/* Preview URL */}
-                <input
-                  type="text"
-                  value={preview}
-                  readOnly
-                  className="flex-1 min-w-0 bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-xs text-white"
+                <img
+                  src={preview}
+                  alt="Screenshot preview"
+                  className="h-20 w-20 rounded-xl border border-white/20 object-cover"
                 />
 
-                {/* View Image */}
                 <button
                   type="button"
-                  onClick={() => window.open(preview, "_blank")}
-                  className="bg-blue-500 text-white px-3 py-1 rounded-lg text-xs hover:bg-blue-600"
+                  onClick={() => window.open(preview, "_blank", "noopener,noreferrer")}
+                  className="bg-blue-500 text-white px-3 py-2 rounded-lg text-xs hover:bg-blue-600"
                 >
                   View Image
                 </button>
 
-                {/* Remove Screenshot */}
                 <button
                   type="button"
                   onClick={() => {
-                    setPreview(null);
-
-                    setForm((prev) => ({
-                      ...prev,
-                      screenshot: null
-                    }));
-
+                    setForm((prev) => ({ ...prev, screenshot: null }));
+                    replacePreview(null);
                     if (fileInputRef.current) {
                       fileInputRef.current.value = "";
                     }
                   }}
-                  className="bg-red-500 text-white px-3 py-1 rounded-lg text-xs"
+                  className="bg-red-500 text-white px-3 py-2 rounded-lg text-xs"
                 >
                   Remove
                 </button>
-
               </div>
             )}
-
           </div>
 
           {/* Submit Button */}
@@ -598,15 +595,11 @@ export default function AddMistake() {
             disabled={loading}
             className="w-full flex items-center justify-center gap-3 bg-gradient-to-r from-cyan-400 to-teal-500 text-slate-900 font-bold py-4 rounded-2xl hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 shadow-lg disabled:opacity-70"
           >
-
             {loading && (
-              <span className="w-5 h-5 border-2 border-slate-900 border-t-transparent rounded-full animate-spin"></span>
+              <span className="w-5 h-5 border-2 border-slate-900 border-t-transparent rounded-full animate-spin" />
             )}
-
             {loading ? "Submitting..." : "Submit Mistake"}
-
           </button>
-
         </form>
       </div>
     </div>

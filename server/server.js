@@ -13,7 +13,6 @@ const cron = require("node-cron");
 const authRoutes = require("./routes/authRoutes");
 const mistakeRoutes = require("./routes/mistakeRoutes");
 const teamsRoutes = require("./routes/teamsRoutes");
-const aiRoutes = require("./routes/aiRoutes");
 
 // ==========================================
 // CONTROLLERS
@@ -58,9 +57,9 @@ app.use(
         return callback(null, true);
       }
 
-      // Retained from your existing staging configuration.
-      // Restrict this before production if public access is not intended.
-      return callback(null, true);
+      return callback(
+        new Error("Not allowed by CORS")
+      );
     },
     credentials: true,
   })
@@ -91,29 +90,15 @@ app.use("/api/mistakes", mistakeRoutes);
 // MS Teams Notifications
 app.use("/api/teams", teamsRoutes);
 
-// Gemini AI Description Generator
-// POST /api/ai/generate-description
-app.use("/api/ai", aiRoutes);
-
 // ==========================================
 // HEALTH CHECK ROUTES
 // ==========================================
 
-// Main server health check
 app.get("/", (req, res) => {
   res.status(200).json({
     success: true,
     message: "IAIL Server Running Successfully",
     timestamp: new Date().toISOString(),
-  });
-});
-
-// AI route availability check
-app.get("/api/ai/health", (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: "Gemini AI Description API route is available.",
-    configured: Boolean(process.env.GEMINI_API_KEY),
   });
 });
 
@@ -202,20 +187,7 @@ const startServer = async () => {
       );
     }
 
-    // 3. Verify Gemini configuration without exposing the key
-    console.log(
-      `[Gemini] API key configured: ${
-        Boolean(process.env.GEMINI_API_KEY)
-      }`
-    );
-
-    console.log(
-      `[Gemini] Model configured: ${
-        process.env.GEMINI_MODEL || "gemini-3.8-flash"
-      }`
-    );
-
-    // 4. Start Express server
+    // 3. Start Express server
     app.listen(PORT, () => {
       console.log("------------------------------------");
       console.log("🚀 IAIL Backend Started Successfully");
@@ -223,10 +195,7 @@ const startServer = async () => {
       console.log("🔐 Authentication API: /api/auth");
       console.log("📋 Mistake API: /api/mistakes");
       console.log("📢 Teams API: /api/teams");
-      console.log(
-        "🤖 Gemini AI API: /api/ai/generate-description"
-      );
-      console.log("🤖 Gemini Health: /api/ai/health");
+      console.log("⏰ Daily Teams Report: 6:00 PM IST");
       console.log("------------------------------------");
     });
 
