@@ -89,9 +89,6 @@ const generateAndSendTeamsReport = async ({
     return { success: true, message: 'No records to report.' };
   }
 
-  // 🔍 DEBUG: Check backend server terminal to verify row properties
-  console.log('--- SAMPLE RECORD FETCHED FOR TEAMS REPORT ---', mistakes[0]);
-
   // 3. Pre-calculate repeated mistake frequencies
   const repeatedMistakeMap = {};
   mistakes.forEach((m) => {

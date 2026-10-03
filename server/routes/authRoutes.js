@@ -2,7 +2,9 @@ const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const db = require("../config/db");
-console.log("JWT_SECRET:", process.env.JWT_SECRET);
+
+// Safely check if JWT_SECRET is loaded without exposing it in logs
+console.log("JWT_SECRET loaded:", Boolean(process.env.JWT_SECRET));
 const router = express.Router();
 
 /* ===========================
@@ -23,11 +25,11 @@ router.post("/register", async (req, res) => {
       [name, email, hashedPassword]
     );
 
-    res.status(201).json({ message: "User registered successfully" });
+    return res.status(201).json({ message: "User registered successfully" });
 
   } catch (err) {
-    console.error(err);
-    res.status(400).json({ message: "User already exists" });
+    console.error("Registration error:", err.message);
+    return res.status(400).json({ message: "User already exists or registration failed" });
   }
 });
 
@@ -39,6 +41,11 @@ router.post("/login", async (req, res) => {
 
   if (!email || !password) {
     return res.status(400).json({ message: "All fields are required" });
+  }
+
+  if (!process.env.JWT_SECRET) {
+    console.error("JWT_SECRET environment variable is missing during login attempt.");
+    return res.status(500).json({ message: "Internal server configuration error" });
   }
 
   try {
@@ -69,11 +76,14 @@ router.post("/login", async (req, res) => {
       { expiresIn: "1d" }
     );
 
-    res.json({ token });
+    return res.json({ 
+      token, 
+      user: { id: user.id, name: user.name, email: user.email } 
+    });
 
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server error" });
+    console.error("Login error:", err.message);
+    return res.status(500).json({ message: "Server error" });
   }
 });
 

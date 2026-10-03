@@ -1,32 +1,62 @@
 import axios from "axios";
 
+// Configure the backend URL.
+// VITE_API_URL can contain the backend URL with or without /api.
+const rawBaseURL = import.meta.env.VITE_API_URL?.trim();
+
+const backendURL =
+  rawBaseURL ||
+  (import.meta.env.DEV ? "http://localhost:5000" : "");
+
+const cleanBaseURL = backendURL
+  .replace(/\/+$/, "")
+  .replace(/\/api$/i, "");
+
 const API = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "http://localhost:5000/api",
+  baseURL: cleanBaseURL ? `${cleanBaseURL}/api` : "/api",
+  timeout: 30000,
 });
 
-/* REQUEST INTERCEPTOR */
-API.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
+// Attach JWT token to every authenticated request.
+API.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem("token");
 
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
+    config.headers = config.headers || {};
 
-  return config;
-});
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    } else {
+      delete config.headers.Authorization;
+    }
 
-/* RESPONSE INTERCEPTOR */
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// Handle API errors.
 API.interceptors.response.use(
   (response) => response,
   (error) => {
+    const status = error.response?.status;
+    const requestURL = error.config?.url;
 
-    if (error.response && error.response.status === 401) {
+    console.error("API Request Failed:", {
+      url: requestURL,
+      status,
+      message: error.message,
+      response: error.response?.data,
+    });
+
+    if (status === 401) {
       localStorage.removeItem("token");
       localStorage.removeItem("user");
 
-      alert("Session expired. Please login again.");
-
-      window.location.href = "/";
+      // Prevent repeated redirects.
+      if (window.location.pathname !== "/") {
+        window.location.href = "/";
+      }
     }
 
     return Promise.reject(error);

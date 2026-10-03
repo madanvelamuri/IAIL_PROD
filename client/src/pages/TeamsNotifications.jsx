@@ -61,7 +61,7 @@ const TeamsNotifications = () => {
     setTimeout(() => setToast(null), 4000);
   };
 
-  const fetchLogs = async () => {
+  const fetchLogs = async (pageToFetch = currentPage) => {
     setLoading(true);
     try {
       const response = await getNotifications({
@@ -70,7 +70,7 @@ const TeamsNotifications = () => {
         employee,
         teamsGroup: selectedReportGroup,
         search,
-        page: currentPage,
+        page: pageToFetch,
         limit: 10,
       });
       setNotifications(response?.data || []);
@@ -83,14 +83,18 @@ const TeamsNotifications = () => {
     }
   };
 
+  // Fetch data on page change
   useEffect(() => {
-    fetchLogs();
+    fetchLogs(currentPage);
   }, [currentPage]);
 
   const handleSearch = (e) => {
     e.preventDefault();
-    setCurrentPage(1);
-    fetchLogs();
+    if (currentPage === 1) {
+      fetchLogs(1);
+    } else {
+      setCurrentPage(1); // Will trigger useEffect to fetch page 1
+    }
   };
 
   const handleReset = () => {
@@ -99,8 +103,11 @@ const TeamsNotifications = () => {
     setEmployee('');
     setSelectedReportGroup('QC Team');
     setSearch('');
-    setCurrentPage(1);
-    fetchLogs();
+    if (currentPage === 1) {
+      fetchLogs(1);
+    } else {
+      setCurrentPage(1);
+    }
   };
 
   const handleManualSync = async () => {
@@ -108,7 +115,7 @@ const TeamsNotifications = () => {
     try {
       const res = await syncDashboardNotifications();
       showToast('success', `Data synced! Updated ${res?.changes || 0} records.`);
-      fetchLogs();
+      fetchLogs(currentPage);
     } catch (err) {
       showToast('error', 'Failed to sync dashboard data.');
     } finally {
@@ -128,7 +135,7 @@ const TeamsNotifications = () => {
         search,
       });
       showToast('success', `Report posted to ${selectedReportGroup} successfully!`);
-      fetchLogs();
+      fetchLogs(currentPage);
     } catch (err) {
       showToast('error', `Failed to send report. Check webhook settings.`);
     } finally {
@@ -140,12 +147,12 @@ const TeamsNotifications = () => {
     if (!deleteTarget) return;
     setIsDeleting(true);
     try {
-      if (deleteNotification) {
+      if (typeof deleteNotification === 'function') {
         await deleteNotification(deleteTarget.id);
       }
       showToast('success', `Record #${deleteTarget.claim_id} deleted successfully.`);
       setDeleteTarget(null);
-      fetchLogs();
+      fetchLogs(currentPage);
     } catch (err) {
       showToast('error', 'Failed to delete record.');
     } finally {
@@ -167,7 +174,7 @@ const TeamsNotifications = () => {
     });
   };
 
-  // Smart Pagination range builder (prevents 50 buttons from stretching screen)
+  // Smart Pagination range builder
   const getPageNumbers = () => {
     const pages = [];
     const maxVisible = 5;

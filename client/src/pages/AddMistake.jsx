@@ -136,7 +136,6 @@ export default function AddMistake() {
     setForm((prev) => ({
       ...prev,
       mistake_type: mistakeType,
-      // Conditional categories wait until Missing/Incorrect is selected.
       description: conditions.length
         ? ""
         : generateMistakeDescription(mistakeType)
@@ -169,7 +168,7 @@ export default function AddMistake() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Paste screenshot directly from clipboard
+  // Paste screenshot directly from clipboard (Scoped container listener)
   useEffect(() => {
     const handlePaste = (event) => {
       const items = event.clipboardData?.items;
@@ -194,8 +193,12 @@ export default function AddMistake() {
       }
     };
 
-    window.addEventListener("paste", handlePaste);
-    return () => window.removeEventListener("paste", handlePaste);
+    const targetElement = document.getElementById("add-mistake-container");
+    targetElement?.addEventListener("paste", handlePaste);
+    
+    return () => {
+      targetElement?.removeEventListener("paste", handlePaste);
+    };
   }, []);
 
   // Clean up the temporary screenshot preview URL.
@@ -268,7 +271,7 @@ export default function AddMistake() {
       data.append("employee_name", form.employee_name.trim());
       data.append("mistake_type", form.mistake_type.trim());
       data.append("description", form.description.trim());
-      data.append("is_verification", form.is_verification);
+      data.append("is_verification", String(form.is_verification));
 
       if (form.screenshot) {
         data.append("screenshot", form.screenshot);
@@ -307,7 +310,7 @@ export default function AddMistake() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-6">
+    <div id="add-mistake-container" className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-6 outline-none">
       <div className="w-full max-w-3xl backdrop-blur-2xl bg-white/5 border border-white/10 rounded-3xl p-12 shadow-[0_20px_60px_rgba(0,0,0,0.6)] text-white">
         <h2 className="text-4xl font-extrabold mb-10 text-center bg-gradient-to-r from-cyan-400 to-teal-400 bg-clip-text text-transparent">
           Add QC Mistake
@@ -315,22 +318,32 @@ export default function AddMistake() {
 
         <form onSubmit={handleSubmit} className="space-y-7">
           {/* Claim ID */}
-          <input
-            type="text"
-            placeholder="Claim ID"
-            value={form.claim_id}
-            onChange={(event) =>
-              setForm((prev) => ({ ...prev, claim_id: event.target.value }))
-            }
-            className="w-full bg-white/10 border border-white/20 rounded-2xl px-5 py-4 text-white placeholder-white/50 focus:ring-2 focus:ring-cyan-400 outline-none transition"
-            required
-          />
+          <div className="space-y-2">
+            <label htmlFor="claim-id" className="block text-sm font-semibold text-white/80">
+              Claim ID <span className="text-rose-400">*</span>
+            </label>
+            <input
+              id="claim-id"
+              type="text"
+              placeholder="Enter Claim ID"
+              value={form.claim_id}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, claim_id: event.target.value }))
+              }
+              className="w-full bg-white/10 border border-white/20 rounded-2xl px-5 py-4 text-white placeholder-white/50 focus:ring-2 focus:ring-cyan-400 outline-none transition"
+              required
+            />
+          </div>
 
           {/* Employee Name */}
-          <div className="relative" ref={employeeRef}>
+          <div className="relative space-y-2" ref={employeeRef}>
+            <label htmlFor="employee-name" className="block text-sm font-semibold text-white/80">
+              Employee Name <span className="text-rose-400">*</span>
+            </label>
             <input
+              id="employee-name"
               type="text"
-              placeholder="Employee Name"
+              placeholder="Search or enter Employee Name"
               value={form.employee_name}
               onChange={(event) => {
                 setForm((prev) => ({
@@ -364,10 +377,14 @@ export default function AddMistake() {
           </div>
 
           {/* Mistake Type */}
-          <div className="relative" ref={mistakeRef}>
+          <div className="relative space-y-2" ref={mistakeRef}>
+            <label htmlFor="mistake-type" className="block text-sm font-semibold text-white/80">
+              Mistake Type <span className="text-rose-400">*</span>
+            </label>
             <input
+              id="mistake-type"
               type="text"
-              placeholder="Mistake Type"
+              placeholder="Search or select Mistake Type"
               value={form.mistake_type}
               onChange={(event) => {
                 const value = event.target.value;
@@ -484,7 +501,7 @@ export default function AddMistake() {
                 htmlFor="mistake-description"
                 className="text-sm font-semibold text-white/80"
               >
-                Description
+                Description <span className="text-rose-400">*</span>
                 {form.description && (
                   <span className="ml-2 text-xs font-medium text-emerald-400">
                     Auto description generated — please review

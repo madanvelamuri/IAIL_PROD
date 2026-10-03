@@ -32,7 +32,7 @@ const NotificationModel = {
       await db.query(createLogsTable);
       await db.query(createConfigTable);
 
-      // Migration: Ensure existing table gets the screenshot_url column if it was created previously
+      // Migration: Ensure existing table gets the screenshot_url column if created previously
       await db.query(`
         ALTER TABLE teams_notifications 
         ADD COLUMN IF NOT EXISTS screenshot_url TEXT;

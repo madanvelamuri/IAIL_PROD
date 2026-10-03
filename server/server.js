@@ -1,4 +1,3 @@
-
 require("dotenv").config();
 
 const express = require("express");
@@ -9,7 +8,6 @@ const cron = require("node-cron");
 // ==========================================
 // ROUTES
 // ==========================================
-
 const authRoutes = require("./routes/authRoutes");
 const mistakeRoutes = require("./routes/mistakeRoutes");
 const teamsRoutes = require("./routes/teamsRoutes");
@@ -17,7 +15,6 @@ const teamsRoutes = require("./routes/teamsRoutes");
 // ==========================================
 // CONTROLLERS
 // ==========================================
-
 const {
   generateAndSendTeamsReport,
 } = require("./controllers/teamsController");
@@ -25,13 +22,11 @@ const {
 // ==========================================
 // DATABASE MODEL
 // ==========================================
-
 const NotificationModel = require("./models/notificationModel");
 
 // ==========================================
 // EXPRESS APP
 // ==========================================
-
 const app = express();
 
 // ==========================================
@@ -48,7 +43,7 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests without an origin
+      // Allow requests without an origin (like Postman or mobile apps)
       if (!origin) {
         return callback(null, true);
       }
@@ -71,7 +66,7 @@ app.use(express.json({ limit: "10mb" }));
 // Parse URL-encoded requests
 app.use(express.urlencoded({ extended: true }));
 
-// Serve uploaded files
+// Serve uploaded files statically (if using local storage fallback)
 app.use(
   "/uploads",
   express.static(path.join(__dirname, "uploads"))
@@ -91,9 +86,8 @@ app.use("/api/mistakes", mistakeRoutes);
 app.use("/api/teams", teamsRoutes);
 
 // ==========================================
-// HEALTH CHECK ROUTES
+// HEALTH CHECK ROUTE
 // ==========================================
-
 app.get("/", (req, res) => {
   res.status(200).json({
     success: true,
@@ -106,7 +100,6 @@ app.get("/", (req, res) => {
 // CRON JOB
 // AUTOMATED MS TEAMS REPORT AT 6:00 PM IST
 // ==========================================
-
 cron.schedule(
   "0 18 * * *",
   async () => {
@@ -115,7 +108,8 @@ cron.schedule(
     );
 
     try {
-      await generateAndSendTeamsReport("QC Team");
+      // ✅ FIXED: Pass an options object instead of a raw string
+      await generateAndSendTeamsReport({ teamsGroup: "QC Team" });
 
       console.log(
         "✅ [Cron Job] Daily report sent successfully to MS Teams!"
@@ -136,7 +130,6 @@ cron.schedule(
 // ==========================================
 // GLOBAL ERROR HANDLER
 // ==========================================
-
 app.use((err, req, res, next) => {
   console.error("[Global Error Handler]:", {
     message: err.message,
@@ -158,7 +151,6 @@ app.use((err, req, res, next) => {
 // ==========================================
 // SERVER START & ASYNC INITIALIZATION
 // ==========================================
-
 const PORT = process.env.PORT || 5000;
 
 const startServer = async () => {
@@ -167,24 +159,17 @@ const startServer = async () => {
 
     // 1. Initialize database tables
     await NotificationModel.initTables();
+    console.log("[Database] Schema tables initialized successfully.");
 
-    console.log(
-      "[Database] Schema tables initialized successfully."
-    );
-
-    // 2. Synchronize dashboard records
-    // with Teams notifications
-    const syncResult =
-      await NotificationModel.syncDashboardData();
+    // 2. Synchronize dashboard records with Teams notifications
+    const syncResult = await NotificationModel.syncDashboardData();
 
     if (syncResult && syncResult.changes > 0) {
       console.log(
         `[Database Sync] Successfully synced ${syncResult.changes} dashboard record(s) to Teams Notifications.`
       );
     } else {
-      console.log(
-        "[Database Sync] No new records to sync."
-      );
+      console.log("[Database Sync] No new records to sync.");
     }
 
     // 3. Start Express server
@@ -200,11 +185,7 @@ const startServer = async () => {
     });
 
   } catch (error) {
-    console.error(
-      "[Server Startup Error]:",
-      error.message
-    );
-
+    console.error("[Server Startup Error]:", error.message);
     process.exit(1);
   }
 };
@@ -212,22 +193,14 @@ const startServer = async () => {
 // ==========================================
 // PROCESS ERROR HANDLERS
 // ==========================================
-
 process.on("unhandledRejection", (reason) => {
-  console.error(
-    "[Unhandled Rejection]:",
-    reason
-  );
+  console.error("[Unhandled Rejection]:", reason);
 });
 
 process.on("uncaughtException", (error) => {
-  console.error(
-    "[Uncaught Exception]:",
-    error
-  );
-
+  console.error("[Uncaught Exception]:", error);
   process.exit(1);
 });
 
-// Start server
+// Start the server
 startServer();

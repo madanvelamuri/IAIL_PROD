@@ -1,5 +1,4 @@
-
-const mistakeDescriptions = {
+export const mistakeDescriptions = {
   "Primary ICD-10 Code incorrect":
     "The primary ICD-10 code displayed in the UI does not match the diagnosis or code mentioned in the claim form. Review the claim form and UI side by side, verify the documented diagnosis, and update the UI with the matching primary ICD-10 code as per the claim form.",
 
