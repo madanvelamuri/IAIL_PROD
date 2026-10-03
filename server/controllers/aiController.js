@@ -1,5 +1,7 @@
 
-const OpenAI = require("openai");
+// server/controllers/aiController.js
+
+const { GoogleGenAI } = require("@google/genai");
 
 // Generate an AI description for the selected QC mistake type
 exports.generateDescription = async (req, res) => {
@@ -27,96 +29,151 @@ exports.generateDescription = async (req, res) => {
       });
     }
 
-    // 3. Check OpenAI API key
-    if (!process.env.OPENAI_API_KEY) {
+    // 3. Check Gemini API key
+    const apiKey = process.env.GEMINI_API_KEY;
+
+    if (!apiKey) {
+      console.error("[Gemini] API key is not configured.");
+
       return res.status(503).json({
         success: false,
-        message: "OpenAI API key is not configured.",
+        message: "Gemini API key is not configured.",
       });
     }
 
-    // 4. Initialize OpenAI
-    const openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
+    // 4. Initialize Gemini
+    const ai = new GoogleGenAI({
+      apiKey,
     });
 
-    // 5. Generate AI description
-    const response = await openai.responses.create({
-      model: process.env.OPENAI_MODEL || "gpt-5.5",
+    // 5. Select Gemini model
+    const model =
+      process.env.GEMINI_MODEL || "gemini-3.8-flash";
 
-      instructions: `
-        You are an experienced Quality Control (QC) assistant
-        working in a healthcare claims processing department.
+    // 6. Generate AI description
+    const response = await ai.models.generateContent({
+      model,
 
-        Your task is to generate a professional description
-        based on the selected QC mistake category.
-
-        Follow these rules:
-
-        1. Write in simple, professional English.
-        2. Generate one or two clear sentences.
-        3. Explain the type of mistake in a QC context.
-        4. Do not invent claim details.
-        5. Do not invent patient information.
-        6. Do not invent ICD codes or medical information.
-        7. Do not assume that a particular claim was actually
-           processed incorrectly.
-        8. Do not include headings or bullet points.
-        9. Return only the description.
-        10. Keep the description suitable for a QC mistake report.
-      `,
-
-      input: `
+      contents: `
         Selected QC Mistake Type: ${cleanMistakeType}
 
         Generate a professional QC description.
       `,
 
-      max_output_tokens: 120,
+      config: {
+        systemInstruction: `
+          You are an experienced Quality Control (QC) assistant
+          working in a healthcare claims processing department.
+
+          Your task is to generate a professional description
+          based on the selected QC mistake category.
+
+          Follow these rules:
+
+          1. Write in simple, professional English.
+          2. Generate one or two clear sentences.
+          3. Explain the type of mistake in a QC context.
+          4. Do not invent claim details.
+          5. Do not invent patient information.
+          6. Do not invent ICD codes or medical information.
+          7. Do not assume that a particular claim was actually
+             processed incorrectly.
+          8. Do not include headings or bullet points.
+          9. Return only the description.
+          10. Keep the description suitable for a QC mistake report.
+        `,
+
+        temperature: 0.3,
+        maxOutputTokens: 120,
+      },
     });
 
-    // 6. Extract generated description
-    const description = response.output_text?.trim();
+    // 7. Extract generated description
+    const description = response.text?.trim();
 
     if (!description) {
+      console.error(
+        "[Gemini] Empty description returned by the model."
+      );
+
       return res.status(502).json({
         success: false,
-        message: "AI could not generate a description. Please retry.",
+        message:
+          "Gemini could not generate a description. Please retry.",
       });
     }
 
-    // 7. Send response to frontend
+    // 8. Send response to frontend
     return res.status(200).json({
       success: true,
-      description: description,
+      description,
     });
 
   } catch (error) {
-
-    // 8. Error handling
-    console.error("AI Description Error:", {
+    // 9. Log error details without exposing API credentials
+    console.error("[Gemini Description Error]:", {
       message: error.message,
       status: error.status,
-      request_id: error.request_id,
+      statusCode: error.statusCode,
+      code: error.code,
     });
 
-    if (error.status === 401) {
+    const status = Number(
+      error.status || error.statusCode
+    );
+
+    const errorCode = String(
+      error.code || ""
+    ).toUpperCase();
+
+    const errorMessage = String(
+      error.message || ""
+    ).toLowerCase();
+
+    // Invalid API key or permission issue
+    if (
+      status === 401 ||
+      status === 403 ||
+      errorCode.includes("PERMISSION_DENIED") ||
+      errorMessage.includes("api key not valid")
+    ) {
       return res.status(503).json({
         success: false,
-        message: "Invalid OpenAI API key. Please check server configuration.",
+        message:
+          "Gemini API authentication failed. Please check your API key and permissions.",
       });
     }
 
-    if (error.status === 429) {
+    // Usage limit or quota exceeded
+    if (
+      status === 429 ||
+      errorCode.includes("RESOURCE_EXHAUSTED") ||
+      errorMessage.includes("quota")
+    ) {
       return res.status(429).json({
         success: false,
-        message: "OpenAI usage limit reached. Please try again later.",
+        message:
+          "Gemini API usage limit reached. Please check your API quota and billing.",
       });
     }
 
+    // Invalid or unavailable model
+    if (
+      status === 404 ||
+      errorCode.includes("NOT_FOUND")
+    ) {
+      return res.status(503).json({
+        success: false,
+        message:
+          "Gemini model is unavailable. Please check your GEMINI_MODEL configuration.",
+      });
+    }
+
+    // General server error
     return res.status(500).json({
       success: false,
-      message: "Failed to generate AI description.",
+      message:
+        "Failed to generate AI description. Please try again later.",
     });
   }
 };
