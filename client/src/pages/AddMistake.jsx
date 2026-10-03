@@ -41,7 +41,7 @@ export default function AddMistake() {
   ];
 
   const mistakeOptions = [
-    "Primary ICD-10 Code","Optical Details","Medical Scheme Provider",
+    "Primary ICD-10 Code incorrect ","Optical Details Not added","Medical Scheme Provider not added",
     "Invalid Deductions","Gender Not Mentiond or Incorrect",
     "Particular Name Incorrect","Classification Mistake",
     "Validation Incorrect","Invoice No Incorrect",
@@ -51,7 +51,7 @@ export default function AddMistake() {
     "Dental Details Not Mentioned","Benefit Details Incorrect",
     "Revenue Description Incorrect",
     "Deduction Incorrectly Done or Not Deducted",
-    "Deduction Done with Incorrect Reason","ICD Incorrect","Secondary ICD-10 Code","Invoice No Incorrect",
+    "Deduction Done with Incorrect Reason","ICD Incorrect","Secondary ICD-10 Code incorrect","Invoice No Incorrect",
   ];
 
   const filteredEmployees = employeeOptions.filter((option) =>
