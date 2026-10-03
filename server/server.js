@@ -33,11 +33,12 @@ const app = express();
 // MIDDLEWARE
 // ==========================================
 
-// CORS configuration
+// CORS configuration (including explicit Vercel production URL fallback)
 const allowedOrigins = [
   process.env.CLIENT_URL,
   "http://localhost:3000",
   "http://localhost:5173",
+  "https://iail-prod.vercel.app", // Explicitly added to fix CORS block
 ].filter(Boolean);
 
 app.use(
@@ -108,7 +109,6 @@ cron.schedule(
     );
 
     try {
-      // ✅ FIXED: Pass an options object instead of a raw string
       await generateAndSendTeamsReport({ teamsGroup: "QC Team" });
 
       console.log(
