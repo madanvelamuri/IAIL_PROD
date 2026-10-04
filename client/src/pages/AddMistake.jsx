@@ -75,32 +75,34 @@ export default function AddMistake() {
   ];
 
   // Mistake type suggestions
-  const mistakeOptions = [
-    "Primary ICD-10 Code incorrect",
-    "Optical Details Not added",
-    "Medical Scheme Provider not added",
-    "Invalid Deductions",
-    "Gender Not Mentiond or Incorrect",
-    "Particular Name Incorrect",
-    "Classification Mistake",
-    "Validation Incorrect",
-    "Invoice No Incorrect",
-    "Patient Name Incorrect",
-    "Bypassed claim with Incorrect Reason",
-    "Selected Incorrect Pre Auth",
-    "Claim Date Incorrect",
-    "Incorrect Hospital Name",
-    "DOB Not Mentiond or Incorrect",
-    "Dental Details Not Mentioned",
-    "Benefit Details Incorrect",
-    "Revenue Description Incorrect",
-    "Deduction Incorrectly Done or Not Deducted",
-    "Deduction Done with Incorrect Reason",
-    "ICD Incorrect",
-    "Secondary ICD-10 Code incorrect",
-    "Tariff – Missing or Incorrect"
-  ];
-
+  const mistakeOptions = [
+    "Primary ICD-10 Code incorrect",
+    "Optical Details Not added",
+    "Medical Scheme Provider not added or Incorrect",
+    "Invalid Deductions",
+    "Gender Not Mentiond or Incorrect",
+    "Particular Name Incorrect",
+    "Classification Mistake",
+    "Validation Incorrect",
+    "Invoice No Incorrect",
+    "Patient Name Incorrect",
+    "Bypassed claim with Incorrect Reason",
+    "Pre Auth Selected Incorrect or Not selected",
+    "Claim Date Incorrect",
+    "Incorrect Hospital Name",
+    "DOB Not Mentiond or Incorrect",
+    "Dental Details Not Mentioned",
+    "Benefit Details Incorrect",
+    "Revenue Description Incorrect",
+    "Deduction Incorrectly Done or Not Deducted",
+    "Deduction Done with Incorrect Reason",
+    "ICD Incorrect",
+    "Secondary ICD-10 Code incorrect or Not Added",
+    "Tariff – Missing or Incorrect",
+    "Tertiary ICD-10 Code incorrect or Not Added",
+    "Quaternary ICD-10 Code incorrect or Not Added",
+   "Provisional/Final Diagnosis Mentioned Incorrect"
+  ];
   const filteredEmployees = employeeOptions.filter((option) =>
     option.toLowerCase().includes(form.employee_name.toLowerCase())
   );
