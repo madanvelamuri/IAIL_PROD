@@ -93,7 +93,7 @@ router.post("/mistake-types", requireCreator, async (req, res) => {
   try {
     const result = await db.query(
       `INSERT INTO creator_mistake_types
-         (name, description, conditions)
+        (name, description, conditions)
        VALUES ($1, $2, $3)
        RETURNING id, name, description, conditions, created_at`,
       [name, description, conditions]
@@ -177,18 +177,21 @@ router.post("/employees", requireCreator, async (req, res) => {
 // ======================================================
 
 // GET all user accounts — admin only.
-// Never return password_hash.
+// Never return password hashes.
 router.get("/users", requireCreator, async (req, res) => {
   try {
     const result = await db.query(`
       SELECT id, name, email, role, created_at
-      FROM users
+      FROM public.users
       ORDER BY created_at DESC NULLS LAST, id DESC
     `);
 
     return res.json(result.rows);
   } catch (error) {
-    console.error("Load user accounts:", error.message);
+    console.error("Load user accounts:", {
+      message: error.message,
+      code: error.code,
+    });
 
     return res.status(500).json({
       message: "Unable to load user accounts.",
@@ -197,16 +200,19 @@ router.get("/users", requireCreator, async (req, res) => {
 });
 
 // CREATE account — admin only.
-// Passwords are hashed before being stored in PostgreSQL.
+// Existing database schema uses "password", not "password_hash".
 router.post("/users", requireCreator, async (req, res) => {
   const name = String(req.body?.name || "").trim();
+
   const email = String(req.body?.email || "")
     .trim()
     .toLowerCase();
+
   const password =
     typeof req.body?.password === "string"
       ? req.body.password
       : "";
+
   const role = String(req.body?.role || "user")
     .trim()
     .toLowerCase();
@@ -239,16 +245,13 @@ router.post("/users", requireCreator, async (req, res) => {
     });
   }
 
-  if (!process.env.JWT_SECRET) {
-    return res.status(500).json({
-      message: "Authentication is not configured on the server.",
-    });
-  }
-
   try {
-    // Check whether the email is already registered.
+    // Check for an existing email.
     const existingUser = await db.query(
-      "SELECT id FROM users WHERE LOWER(email) = $1 LIMIT 1",
+      `SELECT id
+       FROM public.users
+       WHERE LOWER(email) = $1
+       LIMIT 1`,
       [email]
     );
 
@@ -258,12 +261,14 @@ router.post("/users", requireCreator, async (req, res) => {
       });
     }
 
+    // Hash the password before storing it.
     const passwordHash = await bcrypt.hash(password, 12);
 
+    // Match the existing public.users schema.
     const result = await db.query(
-      `INSERT INTO users (name, email, password_hash, role)
+      `INSERT INTO public.users (name, email, password, role)
        VALUES ($1, $2, $3, $4)
-       RETURNING id, name, email, role, created_at`,
+       RETURNING id, name, email, role`,
       [name, email, passwordHash, role]
     );
 
@@ -278,7 +283,14 @@ router.post("/users", requireCreator, async (req, res) => {
       });
     }
 
-    console.error("Create user account:", error.message);
+    // Keep detailed diagnostics in server logs only.
+    console.error("Create user account failed:", {
+      message: error.message,
+      code: error.code,
+      constraint: error.constraint,
+      table: error.table,
+      column: error.column,
+    });
 
     return res.status(500).json({
       message: "Unable to create user account.",
