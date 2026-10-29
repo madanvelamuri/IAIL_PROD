@@ -21,6 +21,9 @@ export default function AddMistake() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [mistakeCondition, setMistakeCondition] = useState("");
+  const [customMistakeTypes, setCustomMistakeTypes] = useState([]);
+  const [databaseEmployees, setDatabaseEmployees] = useState([]);
+  const [optionsLoading, setOptionsLoading] = useState(true);
 
   const [showEmployeeSuggestions, setShowEmployeeSuggestions] = useState(false);
   const [showMistakeSuggestions, setShowMistakeSuggestions] = useState(false);
@@ -30,8 +33,8 @@ export default function AddMistake() {
   const fileInputRef = useRef(null);
   const previewUrlRef = useRef(null);
 
-  // Existing employee suggestions remain as a fallback.
-  const defaultEmployeeOptions = [
+  // Employee suggestions
+  const employeeOptionsBase = [
     "anil.putturu",
     "braja.behera",
     "divya.pandluru",
@@ -74,80 +77,101 @@ export default function AddMistake() {
     "vamsi.eerla"
   ];
 
-  const [employeeOptions, setEmployeeOptions] = useState(defaultEmployeeOptions);
-  const [employeesLoading, setEmployeesLoading] = useState(false);
+  // Existing built-in mistake type suggestions. Custom types are added below.
+  const builtInMistakeOptions = [
+    "Primary ICD-10 Code incorrect",
+    "Optical Details Not added",
+    "Medical Scheme Provider not added or Incorrect",
+    "Invalid Deductions",
+    "Gender Not Mentiond or Incorrect",
+    "Particular Name Incorrect",
+    "Classification Mistake",
+    "Validation Incorrect",
+    "Invoice No Incorrect",
+    "Patient Name Incorrect",
+    "Bypassed claim with Incorrect Reason",
+    "Pre Auth Selected Incorrect or Not selected",
+    "Claim Date Incorrect",
+    "Incorrect Hospital Name",
+    "DOB Not Mentiond or Incorrect",
+    "Dental Details Not Mentioned",
+    "Benefit Details Incorrect",
+    "Revenue Description Incorrect",
+    "Deduction Incorrectly Done or Not Deducted",
+    "Deduction Done with Incorrect Reason",
+    "ICD Incorrect",
+    "Secondary ICD-10 Code incorrect or Not Added",
+    "Tariff – Missing or Incorrect",
+    "Tertiary ICD-10 Code incorrect or Not Added",
+    "Quaternary ICD-10 Code incorrect or Not Added",
+    "Provisional/Final Diagnosis Mentioned Incorrect"
+  ];
 
-  // Load creator-managed employee names and merge them with existing suggestions.
+  // Load creator-managed employee names and custom mistake types.
   useEffect(() => {
-    let cancelled = false;
+    let active = true;
 
-    const loadEmployees = async () => {
-      setEmployeesLoading(true);
+    const loadCreatorOptions = async () => {
+      setOptionsLoading(true);
       try {
-        const response = await API.get("/creator/employees");
-        const rows = Array.isArray(response.data) ? response.data : [];
-        const apiNames = rows
-          .map((employee) =>
-            typeof employee === "string" ? employee : employee?.name
-          )
-          .filter((name) => typeof name === "string" && name.trim())
-          .map((name) => name.trim());
+        const [employeeResponse, mistakeResponse] = await Promise.all([
+          API.get("/creator/employees"),
+          API.get("/creator/mistake-types")
+        ]);
 
-        if (!cancelled) {
-          const combined = [...defaultEmployeeOptions, ...apiNames];
-          const uniqueNames = new Map();
-          combined.forEach((name) => {
-            const key = name.toLocaleLowerCase();
-            if (!uniqueNames.has(key)) uniqueNames.set(key, name);
-          });
-          setEmployeeOptions([...uniqueNames.values()].sort((a, b) =>
-            a.localeCompare(b, undefined, { sensitivity: "base" })
-          ));
+        if (!active) return;
+
+        if (Array.isArray(employeeResponse.data)) {
+          setDatabaseEmployees(
+            employeeResponse.data
+              .map((item) => String(item?.name || "").trim())
+              .filter(Boolean)
+          );
+        }
+
+        if (Array.isArray(mistakeResponse.data)) {
+          setCustomMistakeTypes(
+            mistakeResponse.data.filter((item) => item && item.name)
+          );
         }
       } catch (error) {
-        // Keep the existing hard-coded list available if the API is unavailable.
         console.error(
-          "Unable to load Creator Dashboard employee names:",
-          error?.response?.data?.message || error.message
+          "Unable to load Creator Dashboard options:",
+          error.response?.data?.message || error.message
         );
       } finally {
-        if (!cancelled) setEmployeesLoading(false);
+        if (active) setOptionsLoading(false);
       }
     };
 
-    loadEmployees();
-    return () => { cancelled = true; };
+    loadCreatorOptions();
+    return () => {
+      active = false;
+    };
   }, []);
 
-  // Mistake type suggestions
-  const mistakeOptions = [
-    "Primary ICD-10 Code incorrect",
-    "Optical Details Not added",
-    "Medical Scheme Provider not added or Incorrect",
-    "Invalid Deductions",
-    "Gender Not Mentiond or Incorrect",
-    "Particular Name Incorrect",
-    "Classification Mistake",
-    "Validation Incorrect",
-    "Invoice No Incorrect",
-    "Patient Name Incorrect",
-    "Bypassed claim with Incorrect Reason",
-    "Pre Auth Selected Incorrect or Not selected",
-    "Claim Date Incorrect",
-    "Incorrect Hospital Name",
-    "DOB Not Mentiond or Incorrect",
-    "Dental Details Not Mentioned",
-    "Benefit Details Incorrect",
-    "Revenue Description Incorrect",
-    "Deduction Incorrectly Done or Not Deducted",
-    "Deduction Done with Incorrect Reason",
-    "ICD Incorrect",
-    "Secondary ICD-10 Code incorrect or Not Added",
-    "Tariff – Missing or Incorrect",
-    "Tertiary ICD-10 Code incorrect or Not Added",
-    "Quaternary ICD-10 Code incorrect or Not Added",
-   "Provisional/Final Diagnosis Mentioned Incorrect"
-  ];
+  const employeeOptions = Array.from(
+    new Map(
+      [
+        ...employeeOptionsBase,
+        ...databaseEmployees
+      ].map((name) => [String(name).trim().toLowerCase(), String(name).trim()])
+    ).values()
+  );
+
+  const customMistakeNames = customMistakeTypes.map((item) =>
+    String(item.name).trim()
+  );
+
+  const mistakeOptions = Array.from(
+    new Map(
+      [...builtInMistakeOptions, ...customMistakeNames].map((name) => [
+        normalizeMistakeType(name),
+        name
+      ])
+    ).values()
+  );
+
   const filteredEmployees = employeeOptions.filter((option) =>
     option.toLowerCase().includes(form.employee_name.toLowerCase())
   );
@@ -158,7 +182,19 @@ export default function AddMistake() {
     )
   );
 
-  const requiredConditions = getMistakeConditions(form.mistake_type);
+  const selectedCustomMistake = customMistakeTypes.find(
+    (item) =>
+      normalizeMistakeType(item.name) ===
+      normalizeMistakeType(form.mistake_type)
+  );
+
+  const requiredConditions = selectedCustomMistake
+    ? Array.isArray(selectedCustomMistake.conditions)
+      ? selectedCustomMistake.conditions
+          .map((condition) => String(condition).trim())
+          .filter(Boolean)
+      : []
+    : getMistakeConditions(form.mistake_type);
 
   const replacePreview = (file) => {
     if (previewUrlRef.current) {
@@ -177,7 +213,15 @@ export default function AddMistake() {
   };
 
   const selectMistakeType = (mistakeType) => {
-    const conditions = getMistakeConditions(mistakeType);
+    const customType = customMistakeTypes.find(
+      (item) =>
+        normalizeMistakeType(item.name) === normalizeMistakeType(mistakeType)
+    );
+    const conditions = customType
+      ? Array.isArray(customType.conditions)
+        ? customType.conditions.filter(Boolean)
+        : []
+      : getMistakeConditions(mistakeType);
 
     setMistakeCondition("");
     setForm((prev) => ({
@@ -185,7 +229,7 @@ export default function AddMistake() {
       mistake_type: mistakeType,
       description: conditions.length
         ? ""
-        : generateMistakeDescription(mistakeType)
+        : customType?.description || generateMistakeDescription(mistakeType)
     }));
 
     setShowMistakeSuggestions(false);
@@ -193,10 +237,29 @@ export default function AddMistake() {
 
   const handleMistakeConditionChange = (condition) => {
     setMistakeCondition(condition);
-    setForm((prev) => ({
-      ...prev,
-      description: generateMistakeDescription(prev.mistake_type, condition)
-    }));
+    setForm((prev) => {
+      const customType = customMistakeTypes.find(
+        (item) =>
+          normalizeMistakeType(item.name) ===
+          normalizeMistakeType(prev.mistake_type)
+      );
+
+      if (customType) {
+        const baseDescription = String(customType.description || "").trim();
+        const conditionText = `Condition: ${condition}.`;
+        return {
+          ...prev,
+          description: baseDescription
+            ? `${baseDescription} ${conditionText}`
+            : conditionText
+        };
+      }
+
+      return {
+        ...prev,
+        description: generateMistakeDescription(prev.mistake_type, condition)
+      };
+    });
   };
 
   // Close suggestions when clicking outside
@@ -405,12 +468,6 @@ export default function AddMistake() {
               required
             />
 
-            {employeesLoading && (
-              <p className="mt-2 text-xs text-white/50" role="status">
-                Loading employee names...
-              </p>
-            )}
-
             {showEmployeeSuggestions && filteredEmployees.length > 0 && (
               <div className="absolute z-50 mt-3 w-full bg-slate-900/95 border border-white/10 rounded-2xl shadow-xl max-h-52 overflow-y-auto">
                 {filteredEmployees.map((option) => (
@@ -488,6 +545,12 @@ export default function AddMistake() {
               </div>
             )}
           </div>
+
+          {optionsLoading && (
+            <p className="text-xs text-white/50" role="status">
+              Loading custom mistake types and employee names...
+            </p>
+          )}
 
           {/* Condition selector for categories with Missing/Incorrect variants */}
           {requiredConditions.length > 0 && (
