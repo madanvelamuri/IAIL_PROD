@@ -54,6 +54,9 @@ export default function CreatorDashboard() {
   const [userEmail, setUserEmail] = useState("");
   const [userPassword, setUserPassword] = useState("");
   const [userRole, setUserRole] = useState("user");
+  const [accessRequests, setAccessRequests] = useState([]);
+  const [selectedRequestId, setSelectedRequestId] = useState(null);
+  const [requestsLoading, setRequestsLoading] = useState(false);
 
   const [mistakeSearch, setMistakeSearch] = useState("");
   const [employeeSearch, setEmployeeSearch] = useState("");
@@ -127,9 +130,43 @@ export default function CreatorDashboard() {
     }
   }, [showToast]);
 
+  const loadAccessRequests = useCallback(async () => {
+    setRequestsLoading(true);
+    try {
+      const response = await API.get("/creator/access-requests");
+      const rows = Array.isArray(response.data)
+        ? response.data
+        : Array.isArray(response.data?.requests)
+          ? response.data.requests
+          : [];
+      setAccessRequests(rows);
+    } catch (err) {
+      // Keep the rest of the dashboard usable if the backend endpoint is not deployed yet.
+      setAccessRequests([]);
+      showToast(
+        "error",
+        err.response?.data?.message ||
+          "Unable to load access requests. Check the creator access-requests API route."
+      );
+    } finally {
+      setRequestsLoading(false);
+    }
+  }, [showToast]);
+
+  const selectAccessRequest = (request) => {
+    const requestedRole = String(request.requested_role ?? request.requestedRole ?? "user").toLowerCase();
+    setUserName(String(request.name ?? ""));
+    setUserEmail(String(request.email ?? "").toLowerCase());
+    setUserRole(["user", "admin"].includes(requestedRole) ? requestedRole : "user");
+    setUserPassword("");
+    setSelectedRequestId(request.id ?? request.email);
+    showToast("success", "Request selected. Name, email, and role have been filled in.");
+  };
+
   useEffect(() => {
     loadData(true);
-  }, [loadData]);
+    loadAccessRequests();
+  }, [loadData, loadAccessRequests]);
 
   const addMistakeType = async (event) => {
     event.preventDefault();
@@ -301,8 +338,10 @@ export default function CreatorDashboard() {
       setUserEmail("");
       setUserPassword("");
       setUserRole("user");
+      setSelectedRequestId(null);
 
       showToast("success", "User account created successfully.");
+      await loadAccessRequests();
     } catch (err) {
       showToast(
         "error",
@@ -778,6 +817,17 @@ export default function CreatorDashboard() {
         .creator-description-general { background: #f5f4ff; border-color: #e3e1ff; }
         .creator-description-general strong { color: #5145b9; }
 
+        .creator-request-list { display: flex; flex-direction: column; gap: 10px; max-height: 360px; overflow: auto; }
+        .creator-request-item { width: 100%; text-align: left; padding: 14px; border: 1px solid #e2e7f0; border-radius: 12px; background: #fff; color: var(--creator-ink); cursor: pointer; transition: border-color .2s, background .2s, box-shadow .2s; }
+        .creator-request-item:hover { border-color: #a8a1ff; background: #fafaff; }
+        .creator-request-item.selected { border-color: #5145e5; background: #f3f2ff; box-shadow: 0 0 0 3px rgba(81,69,229,.09); }
+        .creator-request-name { font-size: 13px; font-weight: 800; overflow-wrap: anywhere; }
+        .creator-request-email { margin-top: 4px; color: #68758b; font-size: 12px; overflow-wrap: anywhere; }
+        .creator-request-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px; }
+        .creator-request-role { padding: 4px 8px; border-radius: 7px; background: #e9e7ff; color: #4338ca; font-size: 10px; font-weight: 800; text-transform: uppercase; }
+        .creator-request-date { color: #929db0; font-size: 10px; }
+        .creator-request-action { margin-top: 9px; color: #5145e5; font-size: 11px; font-weight: 750; }
+
         .creator-condition-list {
           display: flex;
           flex-wrap: wrap;
@@ -977,49 +1027,6 @@ export default function CreatorDashboard() {
         @keyframes creatorToastIn { from { opacity: 0; transform: translateX(28px) scale(.97); } to { opacity: 1; transform: translateX(0) scale(1); } }
         @keyframes creatorToastProgress { from { transform: scaleX(1); } to { transform: scaleX(0); } }
 
-        .creator-admin-message {
-          display: flex;
-          align-items: flex-start;
-          gap: 14px;
-          margin: 18px 0 0;
-          padding: 18px 20px;
-          border: 1px solid #c7d2fe;
-          border-left: 5px solid #5145e5;
-          border-radius: 14px;
-          background: #eef2ff;
-          box-shadow: 0 4px 14px rgba(79, 70, 229, .06);
-        }
-        .creator-admin-message-icon {
-          display: grid;
-          flex: 0 0 36px;
-          width: 36px;
-          height: 36px;
-          place-items: center;
-          border-radius: 10px;
-          color: #4338ca;
-          background: #e0e7ff;
-          font-size: 22px;
-          font-weight: 800;
-        }
-        .creator-admin-message-content { min-width: 0; }
-        .creator-admin-message-content h2 {
-          margin: 0 0 7px;
-          color: #312e81;
-          font-size: 15px;
-          font-weight: 800;
-        }
-        .creator-admin-message-content p {
-          margin: 0;
-          color: #475569;
-          font-size: 13px;
-          line-height: 1.7;
-        }
-        .creator-admin-message-content .creator-admin-message-note {
-          margin-top: 7px;
-          color: #4338ca;
-          font-weight: 650;
-        }
-
         @media (max-width: 900px) {
           .creator-columns { grid-template-columns: minmax(0, 1fr); }
           .creator-card { padding: 22px; }
@@ -1111,21 +1118,6 @@ export default function CreatorDashboard() {
           </button>
         </div>
       </header>
-
-      {/* Admin notice: credentials are created manually by an administrator. */}
-      <section className="creator-admin-message" aria-label="Administrator notice">
-        <div className="creator-admin-message-icon" aria-hidden="true">ⓘ</div>
-        <div className="creator-admin-message-content">
-          <h2>Admin Notice — User Access Requests</h2>
-          <p>
-            When someone requests access, review their details and manually create
-            their login credentials in the User Account Management section.
-          </p>
-          <p className="creator-admin-message-note">
-            Submitting an access request does not automatically create an account.
-          </p>
-        </div>
-      </section>
 
       <section className="creator-stats" aria-label="Dashboard summary">
         <div className="creator-stat">
@@ -1667,6 +1659,11 @@ export default function CreatorDashboard() {
                       <option value="user">User — Standard access</option>
                       <option value="admin">Admin — Administrator</option>
                     </select>
+                    {selectedRequestId && (
+                      <div className="creator-help" style={{ color: "#5145e5" }}>
+                        Role filled from the selected access request. Verify it before creating the account.
+                      </div>
+                    )}
                     {userRole === "admin" && (
                       <div className="creator-help" style={{ color: "#a76512" }}>
                         Assign administrator access only to trusted people.
@@ -1696,6 +1693,71 @@ export default function CreatorDashboard() {
 
               <div className="creator-card">
                 <div className="creator-card-head">
+                  <div>
+                    <h2 className="creator-card-title">Pending Access Requests</h2>
+                    <p className="creator-card-subtitle">
+                      Select a request to fill the account form automatically.
+                    </p>
+                  </div>
+                  <div className="creator-stat-icon">
+                    <Icon name="users" size={21} />
+                  </div>
+                </div>
+
+                <div className="creator-list-meta">
+                  <span>{accessRequests.length} pending request{accessRequests.length === 1 ? "" : "s"}</span>
+                  <button
+                    type="button"
+                    className="creator-tab"
+                    style={{ minHeight: 30, padding: "5px 9px", fontSize: 11 }}
+                    onClick={loadAccessRequests}
+                    disabled={requestsLoading}
+                  >
+                    <Icon name="refresh" size={13} />
+                    {requestsLoading ? "Loading..." : "Refresh"}
+                  </button>
+                </div>
+
+                {requestsLoading ? (
+                  <div className="creator-empty">
+                    <span className="creator-loading-spinner" />
+                    <strong>Loading access requests...</strong>
+                  </div>
+                ) : accessRequests.length > 0 ? (
+                  <div className="creator-request-list">
+                    {accessRequests.map((request) => {
+                      const requestId = request.id ?? request.email;
+                      const requestedRole = String(request.requested_role ?? request.requestedRole ?? "user").toLowerCase();
+                      return (
+                        <button
+                          type="button"
+                          key={requestId}
+                          className={`creator-request-item ${selectedRequestId === requestId ? "selected" : ""}`}
+                          onClick={() => selectAccessRequest(request)}
+                          aria-pressed={selectedRequestId === requestId}
+                        >
+                          <div className="creator-request-name">{request.name || "Name not provided"}</div>
+                          <div className="creator-request-email">{request.email || "Email not provided"}</div>
+                          <div className="creator-request-meta">
+                            <span className="creator-request-role">{requestedRole}</span>
+                            <span className="creator-request-date">
+                              {request.created_at ? new Date(request.created_at).toLocaleDateString() : "Pending review"}
+                            </span>
+                          </div>
+                          <div className="creator-request-action">Click to fill account form →</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="creator-empty">
+                    <div className="creator-empty-icon"><Icon name="users" size={22} /></div>
+                    <strong>No pending access requests</strong>
+                    <span>New requests will appear here after the backend API is connected.</span>
+                  </div>
+                )}
+
+                <div className="creator-card-head" style={{ marginTop: 26, marginBottom: 15 }}>
                   <div>
                     <h2 className="creator-card-title">Account Security</h2>
                     <p className="creator-card-subtitle">
