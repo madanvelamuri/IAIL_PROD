@@ -1,5 +1,6 @@
 
 const express = require("express");
+const bcrypt = require("bcryptjs");
 const db = require("../config/db");
 
 const router = express.Router();
@@ -14,6 +15,11 @@ router.post("/", async (req, res) => {
   const email = String(req.body?.email || "")
     .trim()
     .toLowerCase();
+
+  const password =
+    typeof req.body?.password === "string"
+      ? req.body.password
+      : "";
 
   const requestedRole = String(
     req.body?.requestedRole || "user"
@@ -39,6 +45,13 @@ router.post("/", async (req, res) => {
     });
   }
 
+  // Validate password
+  if (password.length < 8 || password.length > 72) {
+    return res.status(400).json({
+      message: "Password must contain between 8 and 72 characters.",
+    });
+  }
+
   // Validate requested role
   if (!["user", "admin"].includes(requestedRole)) {
     return res.status(400).json({
@@ -47,11 +60,13 @@ router.post("/", async (req, res) => {
   }
 
   try {
-    // Insert the access request into PostgreSQL/Supabase.
+    // Hash the password before storing it.
+    const passwordHash = await bcrypt.hash(password, 12);
+
     const result = await db.query(
       `INSERT INTO public.access_requests
-        (name, email, requested_role)
-       VALUES ($1, $2, $3)
+        (name, email, requested_role, password_hash)
+       VALUES ($1, $2, $3, $4)
        RETURNING
          id,
          name,
@@ -59,9 +74,10 @@ router.post("/", async (req, res) => {
          requested_role,
          status,
          created_at`,
-      [name, email, requestedRole]
+      [name, email, requestedRole, passwordHash]
     );
 
+    // Never return the password or its hash.
     return res.status(201).json({
       message: "Access request submitted successfully.",
       request: result.rows[0],
@@ -72,10 +88,16 @@ router.post("/", async (req, res) => {
       code: error.code,
     });
 
-    // Handle database unique-constraint violations.
     if (error.code === "23505") {
       return res.status(409).json({
         message: "An access request with these details already exists.",
+      });
+    }
+
+    // PostgreSQL undefined-column error.
+    if (error.code === "42703") {
+      return res.status(500).json({
+        message: "Access request database schema needs updating.",
       });
     }
 
