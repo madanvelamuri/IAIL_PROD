@@ -1,3 +1,4 @@
+
 export const mistakeDescriptions = {
   "Primary ICD-10 Code incorrect":
     "The primary ICD-10 code displayed in the UI does not match the diagnosis or code mentioned in the claim form. Review the claim form and UI side by side, verify the documented diagnosis, and update the UI with the matching primary ICD-10 code as per the claim form.",
@@ -78,10 +79,14 @@ export const mistakeDescriptions = {
     "The tariff has not been correctly identified or selected for the claim. First, review the bill particulars and correct the particular names in the OC Mapping column based on the invoice and supporting documents. After correcting the particular names, click the 'Compare Tariff' button and review the tariff results presented for the relevant hospital or provider. Do not manually select 'Not Found' when a tariff is available in the comparison results. If the tariff is presented for a different provider or hospital, verify the provider/hospital mapping and select the tariff applicable to the claim. Before completing the claim, confirm that the particular name, provider/hospital, and tariff selection match the supporting documents and the available tariff results."
 };
 
+// ==========================================
+// CONDITION-SPECIFIC DESCRIPTIONS
+// ==========================================
 export const mistakeConditions = {
   "Medical Scheme Provider not added or Incorrect": {
     "Not Added":
       "The medical scheme provider details mentioned in the claim form were omitted and have not been added to the UI. Review the patient's insurance information in the claim form and update the missing provider details in the UI.",
+
     Incorrect:
       "The medical scheme provider details recorded in the UI do not match the provider mentioned in the claim form or supporting documents. Review the insurance information and update the UI with the correct provider details."
   },
@@ -89,6 +94,7 @@ export const mistakeConditions = {
   "Gender Not Mentiond or Incorrect": {
     Missing:
       "The patient's gender is not mentioned in the claim form or supporting documents, or the gender information has not been entered in the UI. Review the available claim form documents and verify the correct gender. Update the missing gender information in the UI wherever it is supported by the documentation.",
+
     Incorrect:
       "The patient's gender displayed in the UI does not match the gender mentioned in the claim form or supporting documents. Review both the claim form and UI, identify the mismatch, and update the UI with the correct gender as per the claim form."
   },
@@ -96,6 +102,7 @@ export const mistakeConditions = {
   "DOB Not Mentiond or Incorrect": {
     Missing:
       "The patient's date of birth (DOB) is missing from the claim form or has not been entered in the UI. Review the available claim form documents and supporting records. Update the missing DOB in the UI based on the verified documentation.",
+
     Incorrect:
       "The patient's date of birth displayed in the UI does not match the DOB mentioned in the claim form or supporting documents. Compare the date, month, and year in both places and update the UI with the correct DOB as per the claim form."
   },
@@ -103,6 +110,7 @@ export const mistakeConditions = {
   "Pre Auth Selected Incorrect or Not selected": {
     "Not Selected":
       "The pre-authorization details mentioned in the claim form or supporting records were omitted and not selected in the UI. Review the available pre-authorization records and select the correct authorization number and related details in the UI.",
+
     Incorrect:
       "The pre-authorization selected in the UI does not match the pre-authorization details associated with the claim. Review the claim form and available records, verify the correct authorization number, and update the selection in the UI."
   },
@@ -110,6 +118,7 @@ export const mistakeConditions = {
   "Secondary ICD-10 Code incorrect or Not Added": {
     "Not Added":
       "The secondary ICD-10 code documented in the claim form or medical records was omitted and has not been added to the UI. Review the medical records and claim form side by side, and add the missing secondary ICD-10 code(s).",
+
     Incorrect:
       "The secondary ICD-10 code displayed in the UI does not match the secondary diagnosis documented in the claim form or medical records. Review the records side by side and update the UI with the exact matching secondary code supported by the documentation."
   },
@@ -117,6 +126,7 @@ export const mistakeConditions = {
   "Tertiary ICD-10 Code incorrect or Not Added": {
     "Not Added":
       "The tertiary ICD-10 code documented in the claim form or medical records was omitted and has not been added to the UI. Review the medical records and claim form side by side, and add the missing tertiary ICD-10 code(s).",
+
     Incorrect:
       "The tertiary ICD-10 code displayed in the UI does not match the tertiary diagnosis documented in the claim form or medical records. Review the records side by side and update the UI with the exact matching tertiary code supported by the documentation."
   },
@@ -124,6 +134,7 @@ export const mistakeConditions = {
   "Quaternary ICD-10 Code incorrect or Not Added": {
     "Not Added":
       "The quaternary ICD-10 code documented in the claim form or medical records was omitted and has not been added to the UI. Review the medical records and claim form side by side, and add the missing quaternary ICD-10 code(s).",
+
     Incorrect:
       "The quaternary ICD-10 code displayed in the UI does not match the quaternary diagnosis documented in the claim form or medical records. Review the records side by side and update the UI with the exact matching quaternary code supported by the documentation."
   },
@@ -131,11 +142,15 @@ export const mistakeConditions = {
   "Deduction Incorrectly Done or Not Deducted": {
     "Not Deducted":
       "The applicable deduction required by policy rules or supporting invoice details was not applied to the claim. Review the invoice amount, payable amount, and deduction rules, and apply the required deduction in the UI.",
+
     "Incorrectly Done":
       "The deduction applied to the claim has been calculated or executed incorrectly. Review the invoice amount, co-payment, and policy rules, and update the UI with the correct deduction amount."
   }
 };
 
+// ==========================================
+// NORMALIZE MISTAKE TYPE
+// ==========================================
 export const normalizeMistakeType = (value = "") =>
   String(value)
     .trim()
@@ -144,6 +159,9 @@ export const normalizeMistakeType = (value = "") =>
     .replace(/\bmentiond\b/g, "mentioned")
     .replace(/\s+/g, " ");
 
+// ==========================================
+// NORMALIZED DESCRIPTION LOOKUPS
+// ==========================================
 const normalizedDescriptions = Object.fromEntries(
   Object.entries(mistakeDescriptions).map(([type, description]) => [
     normalizeMistakeType(type),
@@ -158,25 +176,118 @@ const normalizedConditions = Object.fromEntries(
   ])
 );
 
+// ==========================================
+// GET AVAILABLE CONDITIONS
+// ==========================================
 export const getMistakeConditions = (mistakeType) => {
   if (!mistakeType) return [];
 
-  const conditions = normalizedConditions[normalizeMistakeType(mistakeType)];
+  const conditions =
+    normalizedConditions[normalizeMistakeType(mistakeType)];
 
   return conditions ? Object.keys(conditions) : [];
 };
 
-export const generateMistakeDescription = (mistakeType, condition = "") => {
+// ==========================================
+// GENERATE MISTAKE DESCRIPTION
+// ==========================================
+export const generateMistakeDescription = (
+  mistakeType,
+  condition = ""
+) => {
   if (!mistakeType) return "";
 
   const normalizedType = normalizeMistakeType(mistakeType);
   const conditions = normalizedConditions[normalizedType];
 
   if (conditions) {
-    return condition && conditions[condition] ? conditions[condition] : "";
+    if (!condition) return "";
+
+    const normalizedCondition = String(condition)
+      .trim()
+      .toLowerCase();
+
+    const matchingKey = Object.keys(conditions).find(
+      (key) => key.toLowerCase() === normalizedCondition
+    );
+
+    return matchingKey ? conditions[matchingKey] : "";
   }
 
   return normalizedDescriptions[normalizedType] || "";
+};
+
+// ==========================================
+// DISPLAY CONDITION-SPECIFIC MISTAKE LABEL
+// ==========================================
+export const getDisplayMistakeType = (
+  mistakeType = "",
+  conditionStatus = ""
+) => {
+  const originalType = String(mistakeType || "").trim();
+
+  if (!originalType) return "";
+
+  const condition = String(conditionStatus || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[_-]/g, " ")
+    .replace(/\s+/g, " ");
+
+  // Never guess a condition that was not saved.
+  if (!condition) return originalType;
+
+  const type = normalizeMistakeType(originalType);
+
+  const displayLabels = {
+    "medical scheme provider not added or incorrect": {
+      "not added": "Medical Scheme Provider Not Added",
+      incorrect: "Medical Scheme Provider Incorrect"
+    },
+
+    "gender not mentioned or incorrect": {
+      missing: "Gender Not Mentioned",
+      "not mentioned": "Gender Not Mentioned",
+      incorrect: "Gender Incorrect"
+    },
+
+    "dob not mentioned or incorrect": {
+      missing: "DOB Not Mentioned",
+      "not mentioned": "DOB Not Mentioned",
+      incorrect: "DOB Incorrect"
+    },
+
+    "pre auth selected incorrect or not selected": {
+      "not selected": "Pre Auth Not Selected",
+      incorrect: "Pre Auth Incorrect"
+    },
+
+    "secondary icd 10 code incorrect or not added": {
+      "not added": "Secondary ICD-10 Code Not Added",
+      incorrect: "Secondary ICD-10 Code Incorrect"
+    },
+
+    "tertiary icd 10 code incorrect or not added": {
+      "not added": "Tertiary ICD-10 Code Not Added",
+      incorrect: "Tertiary ICD-10 Code Incorrect"
+    },
+
+    "quaternary icd 10 code incorrect or not added": {
+      "not added": "Quaternary ICD-10 Code Not Added",
+      incorrect: "Quaternary ICD-10 Code Incorrect"
+    },
+
+    "deduction incorrectly done or not deducted": {
+      "not deducted": "Deduction Not Deducted",
+      "incorrectly done": "Deduction Incorrectly Done"
+    }
+  };
+
+  const labels = displayLabels[type];
+
+  if (!labels) return originalType;
+
+  return labels[condition] || originalType;
 };
 
 export default mistakeDescriptions;
