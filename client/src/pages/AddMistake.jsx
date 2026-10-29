@@ -30,8 +30,8 @@ export default function AddMistake() {
   const fileInputRef = useRef(null);
   const previewUrlRef = useRef(null);
 
-  // Employee suggestions
-  const employeeOptions = [
+  // Existing employee suggestions remain as a fallback.
+  const defaultEmployeeOptions = [
     "anil.putturu",
     "braja.behera",
     "divya.pandluru",
@@ -73,6 +73,51 @@ export default function AddMistake() {
     "yamini.meditha",
     "vamsi.eerla"
   ];
+
+  const [employeeOptions, setEmployeeOptions] = useState(defaultEmployeeOptions);
+  const [employeesLoading, setEmployeesLoading] = useState(false);
+
+  // Load creator-managed employee names and merge them with existing suggestions.
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadEmployees = async () => {
+      setEmployeesLoading(true);
+      try {
+        const response = await API.get("/creator/employees");
+        const rows = Array.isArray(response.data) ? response.data : [];
+        const apiNames = rows
+          .map((employee) =>
+            typeof employee === "string" ? employee : employee?.name
+          )
+          .filter((name) => typeof name === "string" && name.trim())
+          .map((name) => name.trim());
+
+        if (!cancelled) {
+          const combined = [...defaultEmployeeOptions, ...apiNames];
+          const uniqueNames = new Map();
+          combined.forEach((name) => {
+            const key = name.toLocaleLowerCase();
+            if (!uniqueNames.has(key)) uniqueNames.set(key, name);
+          });
+          setEmployeeOptions([...uniqueNames.values()].sort((a, b) =>
+            a.localeCompare(b, undefined, { sensitivity: "base" })
+          ));
+        }
+      } catch (error) {
+        // Keep the existing hard-coded list available if the API is unavailable.
+        console.error(
+          "Unable to load Creator Dashboard employee names:",
+          error?.response?.data?.message || error.message
+        );
+      } finally {
+        if (!cancelled) setEmployeesLoading(false);
+      }
+    };
+
+    loadEmployees();
+    return () => { cancelled = true; };
+  }, []);
 
   // Mistake type suggestions
   const mistakeOptions = [
@@ -358,6 +403,12 @@ export default function AddMistake() {
               className="w-full bg-white/10 border border-white/20 rounded-2xl px-5 py-4 text-white placeholder-white/50 focus:ring-2 focus:ring-cyan-400 outline-none transition"
               required
             />
+
+            {employeesLoading && (
+              <p className="mt-2 text-xs text-white/50" role="status">
+                Loading employee names...
+              </p>
+            )}
 
             {showEmployeeSuggestions && filteredEmployees.length > 0 && (
               <div className="absolute z-50 mt-3 w-full bg-slate-900/95 border border-white/10 rounded-2xl shadow-xl max-h-52 overflow-y-auto">
