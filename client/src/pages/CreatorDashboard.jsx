@@ -44,8 +44,10 @@ export default function CreatorDashboard() {
   const [employees, setEmployees] = useState([]);
 
   const [mistakeName, setMistakeName] = useState("");
-  const [description, setDescription] = useState("");
-  const [conditions, setConditions] = useState("");
+  const [notAddedDescription, setNotAddedDescription] = useState("");
+  const [incorrectDescription, setIncorrectDescription] = useState("");
+  const [generalDescription, setGeneralDescription] = useState("");
+  const [conditions, setConditions] = useState("Missing\nIncorrect");
   const [employeeName, setEmployeeName] = useState("");
 
   const [mistakeSearch, setMistakeSearch] = useState("");
@@ -130,20 +132,42 @@ export default function CreatorDashboard() {
     if (requestLock.current) return;
 
     const cleanName = mistakeName.trim();
-    const cleanDescription = description.trim();
+    const cleanNotAdded = notAddedDescription.trim();
+    const cleanIncorrect = incorrectDescription.trim();
+    const cleanGeneral = generalDescription.trim();
     const cleanConditions = conditions
       .split("\n")
       .map((value) => value.trim())
       .filter(Boolean);
+    const normalizedConditions = cleanConditions.map((value) => value.toLowerCase());
 
     if (!cleanName) {
       showToast("error", "Please enter a mistake type name.");
       return;
     }
 
+    if (cleanConditions.length === 0) {
+      showToast("error", "Enter at least one condition.");
+      return;
+    }
+
+    const needsNotAdded = normalizedConditions.some((value) =>
+      ["missing", "not added"].includes(value)
+    );
+    const needsIncorrect = normalizedConditions.includes("incorrect");
+
+    if (needsNotAdded && !cleanNotAdded) {
+      showToast("error", "Please enter the Not Added / Missing description.");
+      return;
+    }
+
+    if (needsIncorrect && !cleanIncorrect) {
+      showToast("error", "Please enter the Incorrect description.");
+      return;
+    }
+
     const duplicate = mistakeTypes.some(
-      (item) =>
-        item.name?.trim().toLowerCase() === cleanName.toLowerCase()
+      (item) => item.name?.trim().toLowerCase() === cleanName.toLowerCase()
     );
 
     if (duplicate) {
@@ -151,19 +175,29 @@ export default function CreatorDashboard() {
       return;
     }
 
+    // Keep using the existing API/database description field. Labels let this
+    // component show the two descriptions separately without requiring new columns.
+    const combinedDescription = [
+      cleanNotAdded ? `Not Added: ${cleanNotAdded}` : "",
+      cleanIncorrect ? `Incorrect: ${cleanIncorrect}` : "",
+      cleanGeneral ? `General: ${cleanGeneral}` : "",
+    ].filter(Boolean).join("\n");
+
     requestLock.current = true;
     setLoading(true);
 
     try {
       await API.post("/creator/mistake-types", {
         name: cleanName,
-        description: cleanDescription,
+        description: combinedDescription,
         conditions: cleanConditions,
       });
 
       setMistakeName("");
-      setDescription("");
-      setConditions("");
+      setNotAddedDescription("");
+      setIncorrectDescription("");
+      setGeneralDescription("");
+      setConditions("Missing\nIncorrect");
 
       await loadData();
       showToast("success", "Mistake type added successfully.");
@@ -223,26 +257,6 @@ export default function CreatorDashboard() {
     }
   };
 
-  const filteredMistakes = mistakeTypes.filter((item) => {
-    const search = mistakeSearch.trim().toLowerCase();
-
-    return (
-      !search ||
-      item.name?.toLowerCase().includes(search) ||
-      item.description?.toLowerCase().includes(search) ||
-      (Array.isArray(item.conditions) &&
-        item.conditions.some((condition) =>
-          String(condition).toLowerCase().includes(search)
-        ))
-    );
-  });
-
-  const filteredEmployees = employees.filter((employee) =>
-    employee.name
-      ?.toLowerCase()
-      .includes(employeeSearch.trim().toLowerCase())
-  );
-
   const formatConditions = (value) => {
     if (Array.isArray(value)) return value;
     if (typeof value === "string") {
@@ -255,6 +269,49 @@ export default function CreatorDashboard() {
     }
     return [];
   };
+
+  const parseMistakeDescription = (value) => {
+    const result = { notAdded: "", incorrect: "", general: "", legacy: "" };
+    if (!value || typeof value !== "string") return result;
+
+    const notAddedMatch = value.match(/(?:^|\n)\s*Not Added:\s*([\s\S]*?)(?=\n\s*(?:Incorrect|General):|$)/i);
+    const incorrectMatch = value.match(/(?:^|\n)\s*Incorrect:\s*([\s\S]*?)(?=\n\s*General:|$)/i);
+    const generalMatch = value.match(/(?:^|\n)\s*General:\s*([\s\S]*)$/i);
+
+    if (notAddedMatch || incorrectMatch || generalMatch) {
+      result.notAdded = notAddedMatch?.[1]?.trim() || "";
+      result.incorrect = incorrectMatch?.[1]?.trim() || "";
+      result.general = generalMatch?.[1]?.trim() || "";
+    } else {
+      // Preserve descriptions created before this update.
+      result.legacy = value.trim();
+    }
+    return result;
+  };
+
+  const filteredMistakes = mistakeTypes.filter((item) => {
+    const search = mistakeSearch.trim().toLowerCase();
+    const parsed = parseMistakeDescription(item.description);
+
+    return (
+      !search ||
+      item.name?.toLowerCase().includes(search) ||
+      item.description?.toLowerCase().includes(search) ||
+      parsed.notAdded.toLowerCase().includes(search) ||
+      parsed.incorrect.toLowerCase().includes(search) ||
+      parsed.general.toLowerCase().includes(search) ||
+      (formatConditions(item.conditions).some((condition) =>
+        String(condition).toLowerCase().includes(search)
+      ))
+    );
+  });
+
+  const filteredEmployees = employees.filter((employee) =>
+    employee.name
+      ?.toLowerCase()
+      .includes(employeeSearch.trim().toLowerCase())
+  );
+
 
   return (
     <div className="creator-page">
@@ -636,6 +693,33 @@ export default function CreatorDashboard() {
           overflow-wrap: anywhere;
         }
 
+        .creator-description-box {
+          margin-top: 10px;
+          padding: 11px 12px;
+          border: 1px solid #e7eaf2;
+          border-radius: 10px;
+        }
+        .creator-description-box strong {
+          display: block;
+          margin-bottom: 5px;
+          font-size: 11px;
+          font-weight: 800;
+        }
+        .creator-description-box p {
+          margin: 0;
+          color: #69758b;
+          font-size: 12px;
+          line-height: 1.65;
+          white-space: pre-wrap;
+          overflow-wrap: anywhere;
+        }
+        .creator-description-missing { background: #fff8ed; border-color: #f7e2c1; }
+        .creator-description-missing strong { color: #a76512; }
+        .creator-description-incorrect { background: #fff1f2; border-color: #f6d9de; }
+        .creator-description-incorrect strong { color: #b83248; }
+        .creator-description-general { background: #f5f4ff; border-color: #e3e1ff; }
+        .creator-description-general strong { color: #5145b9; }
+
         .creator-condition-list {
           display: flex;
           flex-wrap: wrap;
@@ -1012,21 +1096,54 @@ export default function CreatorDashboard() {
                   </div>
 
                   <div className="creator-field">
-                    <label className="creator-label" htmlFor="creator-description">
-                      Description
+                    <label className="creator-label" htmlFor="creator-not-added-description">
+                      Not Added / Missing Description
                     </label>
                     <textarea
-                      id="creator-description"
+                      id="creator-not-added-description"
                       maxLength={2000}
                       className="creator-input creator-textarea"
-                      rows={4}
-                      value={description}
-                      onChange={(event) => setDescription(event.target.value)}
-                      placeholder="Describe the mistake and what the QC reviewer should check..."
+                      rows={3}
+                      value={notAddedDescription}
+                      onChange={(event) => setNotAddedDescription(event.target.value)}
+                      placeholder="Explain what was not added and what the QC reviewer should check..."
                     />
                     <div className="creator-help">
-                      {description.length}/2000 characters
+                      {notAddedDescription.length}/2000 characters
                     </div>
+                  </div>
+
+                  <div className="creator-field">
+                    <label className="creator-label" htmlFor="creator-incorrect-description">
+                      Incorrect Description
+                    </label>
+                    <textarea
+                      id="creator-incorrect-description"
+                      maxLength={2000}
+                      className="creator-input creator-textarea"
+                      rows={3}
+                      value={incorrectDescription}
+                      onChange={(event) => setIncorrectDescription(event.target.value)}
+                      placeholder="Explain what is incorrect and what should be corrected..."
+                    />
+                    <div className="creator-help">
+                      {incorrectDescription.length}/2000 characters
+                    </div>
+                  </div>
+
+                  <div className="creator-field">
+                    <label className="creator-label" htmlFor="creator-general-description">
+                      General Description (optional)
+                    </label>
+                    <textarea
+                      id="creator-general-description"
+                      maxLength={2000}
+                      className="creator-input creator-textarea"
+                      rows={2}
+                      value={generalDescription}
+                      onChange={(event) => setGeneralDescription(event.target.value)}
+                      placeholder="Optional notes that apply to this mistake type generally..."
+                    />
                   </div>
 
                   <div className="creator-field">
@@ -1114,11 +1231,36 @@ export default function CreatorDashboard() {
                           </span>
                         </div>
 
-                        {item.description && (
-                          <p className="creator-item-description">
-                            {item.description}
-                          </p>
-                        )}
+                        {(() => {
+                          const parsedDescription = parseMistakeDescription(item.description);
+                          return (
+                            <>
+                              {parsedDescription.notAdded && (
+                                <div className="creator-description-box creator-description-missing">
+                                  <strong>Not Added / Missing</strong>
+                                  <p>{parsedDescription.notAdded}</p>
+                                </div>
+                              )}
+                              {parsedDescription.incorrect && (
+                                <div className="creator-description-box creator-description-incorrect">
+                                  <strong>Incorrect</strong>
+                                  <p>{parsedDescription.incorrect}</p>
+                                </div>
+                              )}
+                              {parsedDescription.general && (
+                                <div className="creator-description-box creator-description-general">
+                                  <strong>General Description</strong>
+                                  <p>{parsedDescription.general}</p>
+                                </div>
+                              )}
+                              {parsedDescription.legacy && (
+                                <p className="creator-item-description">
+                                  {parsedDescription.legacy}
+                                </p>
+                              )}
+                            </>
+                          );
+                        })()}
 
                         {itemConditions.length > 0 && (
                           <div className="creator-condition-list">
