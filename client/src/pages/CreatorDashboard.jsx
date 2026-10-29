@@ -977,6 +977,49 @@ export default function CreatorDashboard() {
         @keyframes creatorToastIn { from { opacity: 0; transform: translateX(28px) scale(.97); } to { opacity: 1; transform: translateX(0) scale(1); } }
         @keyframes creatorToastProgress { from { transform: scaleX(1); } to { transform: scaleX(0); } }
 
+        .creator-admin-message {
+          display: flex;
+          align-items: flex-start;
+          gap: 14px;
+          margin: 18px 0 0;
+          padding: 18px 20px;
+          border: 1px solid #c7d2fe;
+          border-left: 5px solid #5145e5;
+          border-radius: 14px;
+          background: #eef2ff;
+          box-shadow: 0 4px 14px rgba(79, 70, 229, .06);
+        }
+        .creator-admin-message-icon {
+          display: grid;
+          flex: 0 0 36px;
+          width: 36px;
+          height: 36px;
+          place-items: center;
+          border-radius: 10px;
+          color: #4338ca;
+          background: #e0e7ff;
+          font-size: 22px;
+          font-weight: 800;
+        }
+        .creator-admin-message-content { min-width: 0; }
+        .creator-admin-message-content h2 {
+          margin: 0 0 7px;
+          color: #312e81;
+          font-size: 15px;
+          font-weight: 800;
+        }
+        .creator-admin-message-content p {
+          margin: 0;
+          color: #475569;
+          font-size: 13px;
+          line-height: 1.7;
+        }
+        .creator-admin-message-content .creator-admin-message-note {
+          margin-top: 7px;
+          color: #4338ca;
+          font-weight: 650;
+        }
+
         @media (max-width: 900px) {
           .creator-columns { grid-template-columns: minmax(0, 1fr); }
           .creator-card { padding: 22px; }
@@ -1068,6 +1111,21 @@ export default function CreatorDashboard() {
           </button>
         </div>
       </header>
+
+      {/* Admin notice: credentials are created manually by an administrator. */}
+      <section className="creator-admin-message" aria-label="Administrator notice">
+        <div className="creator-admin-message-icon" aria-hidden="true">ⓘ</div>
+        <div className="creator-admin-message-content">
+          <h2>Admin Notice — User Access Requests</h2>
+          <p>
+            When someone requests access, review their details and manually create
+            their login credentials in the User Account Management section.
+          </p>
+          <p className="creator-admin-message-note">
+            Submitting an access request does not automatically create an account.
+          </p>
+        </div>
+      </section>
 
       <section className="creator-stats" aria-label="Dashboard summary">
         <div className="creator-stat">
