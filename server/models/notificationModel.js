@@ -2,9 +2,7 @@
 const db = require("../config/db");
 
 const NotificationModel = {
-  // ==========================================
-  // INITIALIZE TABLES AND SAFE MIGRATIONS
-  // ==========================================
+  // Initialize PostgreSQL tables without deleting existing records.
   initTables: async () => {
     const createLogsTable = `
       CREATE TABLE IF NOT EXISTS teams_notifications (
@@ -14,7 +12,6 @@ const NotificationModel = {
         mistake_type VARCHAR(255) NOT NULL,
         description TEXT,
         screenshot_url TEXT,
-        condition_status VARCHAR(100),
         created_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         teams_group VARCHAR(255) DEFAULT 'QC Team',
         status VARCHAR(50)
@@ -38,34 +35,22 @@ const NotificationModel = {
       await db.query(createLogsTable);
       await db.query(createConfigTable);
 
-      // Safe migrations for existing tables.
       await db.query(`
-        ALTER TABLE public.teams_notifications
+        ALTER TABLE teams_notifications
         ADD COLUMN IF NOT EXISTS screenshot_url TEXT;
       `);
 
-      await db.query(`
-        ALTER TABLE public.teams_notifications
-        ADD COLUMN IF NOT EXISTS condition_status VARCHAR(100);
-      `);
-
-      console.log(
-        "[NotificationModel] Tables and migrations initialized."
-      );
+      console.log("[NotificationModel] Tables initialized.");
     } catch (err) {
       console.error(
-        "[NotificationModel] Table initialization error:",
+        "[NotificationModel] Table initialization failed:",
         err.message
       );
-
       throw err;
     }
   },
 
-  // ==========================================
-  // GET NOTIFICATIONS
-  // Includes condition_status in SELECT *
-  // ==========================================
+  // Get notifications with filtering and pagination.
   getNotifications: async ({
     fromDate,
     toDate,
@@ -73,10 +58,10 @@ const NotificationModel = {
     teamsGroup,
     status,
     search,
-    limit,
-    offset,
+    limit = 10,
+    offset = 0,
   }) => {
-    let baseQuery = "FROM teams_notifications WHERE 1=1";
+    let baseQuery = " FROM teams_notifications WHERE 1=1";
     const params = [];
 
     if (fromDate) {
@@ -106,240 +91,253 @@ const NotificationModel = {
 
     if (search) {
       params.push(`%${search}%`);
-      const idx = params.length;
+      const index = params.length;
 
       baseQuery += `
         AND (
-          claim_id ILIKE $${idx}
-          OR employee_name ILIKE $${idx}
-          OR mistake_type ILIKE $${idx}
-          OR description ILIKE $${idx}
-          OR COALESCE(condition_status, '') ILIKE $${idx}
+          claim_id ILIKE $${index}
+          OR employee_name ILIKE $${index}
+          OR mistake_type ILIKE $${index}
+          OR description ILIKE $${index}
         )
       `;
     }
 
-    const countQuery = `
-      SELECT COUNT(*) AS total
-      ${baseQuery}
-    `;
+    const countResult = await db.query(
+      `SELECT COUNT(*) AS total ${baseQuery}`,
+      params
+    );
 
-    const countResult = await db.query(countQuery, params);
-    const total = parseInt(countResult.rows[0]?.total || 0, 10);
+    const total = Number.parseInt(countResult.rows[0]?.total || "0", 10);
 
-    const safeLimit = Math.max(1, Math.min(Number(limit) || 10, 100));
-    const safeOffset = Math.max(0, Number(offset) || 0);
-
-    const queryParams = [...params, safeLimit, safeOffset];
+    const queryParams = [...params, limit, offset];
 
     const dataQuery = `
       SELECT *
       ${baseQuery}
-      ORDER BY created_date DESC
+      ORDER BY created_date DESC, id DESC
       LIMIT $${queryParams.length - 1}
       OFFSET $${queryParams.length}
     `;
 
-    const { rows } = await db.query(dataQuery, queryParams);
+    const dataResult = await db.query(dataQuery, queryParams);
 
-    return { rows, total };
+    return {
+      rows: dataResult.rows,
+      total,
+    };
   },
 
-  // ==========================================
-  // GET ACTIVE TEAMS WEBHOOK CONFIG
-  // ==========================================
+  // Retrieve the active webhook for a Teams group.
   getWebhookConfig: async (teamsGroup) => {
     const result = await db.query(
-      `SELECT webhook_url
-       FROM teams_configs
-       WHERE group_name = $1 AND is_active = 1`,
+      `
+        SELECT webhook_url
+        FROM teams_configs
+        WHERE group_name = $1 AND is_active = 1
+      `,
       [teamsGroup]
     );
 
     return result.rows[0];
   },
 
-  // ==========================================
-  // UPDATE NOTIFICATION STATUS
-  // ==========================================
+  // Update notification status after sending or failing.
   updateStatus: async (id, status, errorMessage = null) => {
-    const now = new Date();
+    if (!["Sent", "Failed", "Pending"].includes(status)) {
+      throw new Error("Invalid notification status.");
+    }
+
+    const sentAt = status === "Sent" ? new Date() : null;
 
     return db.query(
-      `UPDATE teams_notifications
-       SET status = $1,
-           sent_at = $2,
-           error_message = $3
-       WHERE id = $4`,
-      [status, now, errorMessage, id]
+      `
+        UPDATE teams_notifications
+        SET status = $1,
+            sent_at = $2,
+            error_message = $3
+        WHERE id = $4
+      `,
+      [status, sentAt, errorMessage, id]
     );
   },
 
-  // ==========================================
-  // GET TEAMS SETTINGS
-  // ==========================================
+  // Retrieve saved Teams settings.
   getAllSettings: async () => {
-    const result = await db.query(
-      `SELECT *
-       FROM teams_configs
-       ORDER BY group_name ASC`
-    );
+    const result = await db.query(`
+      SELECT id, group_name, webhook_url, is_active
+      FROM teams_configs
+      ORDER BY group_name ASC
+    `);
 
     return result.rows;
   },
 
-  // ==========================================
-  // SAVE TEAMS SETTINGS
-  // ==========================================
+  // Save or update a Teams webhook.
   saveSettings: async (groupName, webhookUrl) => {
     const result = await db.query(
-      `INSERT INTO teams_configs
-         (group_name, webhook_url, is_active)
-       VALUES ($1, $2, 1)
-       ON CONFLICT (group_name)
-       DO UPDATE SET
-         webhook_url = EXCLUDED.webhook_url,
-         is_active = 1
-       RETURNING id`,
+      `
+        INSERT INTO teams_configs (group_name, webhook_url, is_active)
+        VALUES ($1, $2, 1)
+        ON CONFLICT (group_name)
+        DO UPDATE SET
+          webhook_url = EXCLUDED.webhook_url,
+          is_active = 1
+        RETURNING id
+      `,
       [groupName, webhookUrl]
     );
 
     return result.rows[0];
   },
 
-  // ==========================================
-  // SYNC MISTAKES INTO TEAMS NOTIFICATIONS
-  // Preserves condition_status and existing statuses.
-  // Does not delete existing records.
-  // ==========================================
+  // Synchronize mistakes into Teams notifications.
+  // Existing records are updated without resetting status or sent_at.
   syncDashboardData: async () => {
+    const client = await db.connect();
+
     try {
-      // 1. Inspect the actual columns in public.mistakes.
-      const columnCheckSql = `
+      await client.query("BEGIN");
+
+      const columnResult = await client.query(`
         SELECT column_name
         FROM information_schema.columns
         WHERE table_schema = 'public'
-          AND table_name = 'mistakes';
-      `;
+          AND table_name = 'mistakes'
+      `);
 
-      const colResult = await db.query(columnCheckSql);
-
-      const existingCols = new Set(
-        colResult.rows.map((row) => row.column_name.toLowerCase())
+      const columns = new Set(
+        columnResult.rows.map((row) => row.column_name.toLowerCase())
       );
 
       if (
-        !existingCols.has("claim_id") ||
-        !existingCols.has("employee_name") ||
-        !existingCols.has("mistake_type")
+        !columns.has("claim_id") ||
+        !columns.has("employee_name") ||
+        !columns.has("mistake_type")
       ) {
         throw new Error(
-          "The mistakes table is missing a required column."
+          "The mistakes table is missing a required synchronization column."
         );
       }
 
-      // 2. Select safe fallback expressions based on the schema.
-      const dateExpression = existingCols.has("created_date")
-        ? "COALESCE(m.created_date, CURRENT_TIMESTAMP)"
-        : existingCols.has("created_at")
-        ? "COALESCE(m.created_at, CURRENT_TIMESTAMP)"
-        : existingCols.has("date")
-        ? "COALESCE(m.date, CURRENT_TIMESTAMP)"
-        : "CURRENT_TIMESTAMP";
-
-      const groupExpression = existingCols.has("teams_group")
-        ? "COALESCE(m.teams_group, 'QC Team')"
-        : existingCols.has("group_name")
-        ? "COALESCE(m.group_name, 'QC Team')"
-        : "'QC Team'";
-
-      const screenshotExpression = existingCols.has("screenshot_url")
-        ? "m.screenshot_url"
-        : existingCols.has("screenshot")
-        ? "m.screenshot"
-        : existingCols.has("file_path")
-        ? "m.file_path"
-        : "NULL";
-
-      const descriptionExpression = existingCols.has("description")
+      const descriptionExpression = columns.has("description")
         ? "m.description"
-        : "''";
-
-      const conditionExpression = existingCols.has("condition_status")
-        ? "NULLIF(BTRIM(m.condition_status), '')"
         : "NULL";
 
-      // 3. Backfill conditions into matching existing notifications.
-      // Only fills missing condition values; preserves status and sent_at.
-      if (existingCols.has("condition_status")) {
-        await db.query(`
-          UPDATE public.teams_notifications AS tn
-          SET condition_status = source.condition_status
-          FROM public.mistakes AS source
-          WHERE source.claim_id::text = tn.claim_id::text
-            AND source.employee_name = tn.employee_name
-            AND source.mistake_type = tn.mistake_type
-            AND NULLIF(BTRIM(source.condition_status), '') IS NOT NULL
-            AND (
-              tn.condition_status IS NULL
-              OR BTRIM(tn.condition_status) = ''
-            );
-        `);
-      }
+      const screenshotExpression = columns.has("screenshot_url")
+        ? "m.screenshot_url"
+        : columns.has("screenshot")
+          ? "m.screenshot"
+          : columns.has("file_path")
+            ? "m.file_path"
+            : "NULL";
 
-      // 4. Insert new records, including condition_status.
-      // A matching notification with the same condition is not duplicated.
-      const syncSql = `
-        INSERT INTO public.teams_notifications (
+      const dateExpression = columns.has("created_date")
+        ? "COALESCE(m.created_date, CURRENT_TIMESTAMP)"
+        : columns.has("created_at")
+          ? "COALESCE(m.created_at, CURRENT_TIMESTAMP)"
+          : columns.has("date")
+            ? "COALESCE(m.date, CURRENT_TIMESTAMP)"
+            : "CURRENT_TIMESTAMP";
+
+      const groupExpression = columns.has("teams_group")
+        ? "COALESCE(m.teams_group, 'QC Team')"
+        : columns.has("group_name")
+          ? "COALESCE(m.group_name, 'QC Team')"
+          : "'QC Team'";
+
+      // Update descriptions for existing notification rows.
+      // Status, sent_at, and error_message are intentionally preserved.
+      const updateResult = await client.query(`
+        UPDATE teams_notifications AS tn
+        SET
+          description = ${descriptionExpression},
+          screenshot_url = COALESCE(
+            ${screenshotExpression},
+            tn.screenshot_url
+          )
+        FROM mistakes AS m
+        WHERE tn.claim_id::text = m.claim_id::text
+          AND LOWER(TRIM(tn.employee_name)) =
+              LOWER(TRIM(m.employee_name))
+          AND LOWER(TRIM(tn.mistake_type)) =
+              LOWER(TRIM(m.mistake_type))
+          AND (
+            COALESCE(tn.description, '') <>
+              COALESCE(${descriptionExpression}, '')
+            OR (
+              ${screenshotExpression} IS NOT NULL
+              AND COALESCE(tn.screenshot_url, '') <>
+                  COALESCE(${screenshotExpression}, '')
+            )
+          )
+      `);
+
+      // Insert source mistakes that do not yet have a matching
+      // notification row. Existing rows are not duplicated.
+      const insertResult = await client.query(`
+        INSERT INTO teams_notifications (
           claim_id,
           employee_name,
           mistake_type,
           description,
           screenshot_url,
-          condition_status,
           created_date,
           teams_group,
           status
         )
         SELECT
-          m.claim_id::text,
+          m.claim_id,
           m.employee_name,
           m.mistake_type,
           ${descriptionExpression},
           ${screenshotExpression},
-          ${conditionExpression},
           ${dateExpression},
           ${groupExpression},
           'Pending'
-        FROM public.mistakes AS m
+        FROM mistakes AS m
         WHERE NOT EXISTS (
           SELECT 1
-          FROM public.teams_notifications AS tn
+          FROM teams_notifications AS tn
           WHERE tn.claim_id::text = m.claim_id::text
-            AND tn.employee_name = m.employee_name
-            AND tn.mistake_type = m.mistake_type
-            AND tn.condition_status IS NOT DISTINCT FROM
-                ${conditionExpression}
-        );
-      `;
+            AND LOWER(TRIM(tn.employee_name)) =
+                LOWER(TRIM(m.employee_name))
+            AND LOWER(TRIM(tn.mistake_type)) =
+                LOWER(TRIM(m.mistake_type))
+        )
+      `);
 
-      const result = await db.query(syncSql);
+      await client.query("COMMIT");
 
-      const changes = result.rowCount || 0;
+      const updated = updateResult.rowCount || 0;
+      const inserted = insertResult.rowCount || 0;
 
-      console.log(
-        `[NotificationModel] Sync completed. Inserted ${changes} new notification(s).`
-      );
-
-      return { changes };
+      return {
+        changes: updated + inserted,
+        updated,
+        inserted,
+      };
     } catch (err) {
-      console.error(
-        "[NotificationModel] Sync error:",
-        err.message
-      );
-
+      await client.query("ROLLBACK");
+      console.error("[NotificationModel] Sync error:", err.message);
       throw err;
+    } finally {
+      client.release();
     }
+  },
+
+  // Delete a notification row when explicitly requested by the user.
+  deleteNotification: async (id) => {
+    const result = await db.query(
+      "DELETE FROM teams_notifications WHERE id = $1 RETURNING id",
+      [id]
+    );
+
+    if (result.rowCount === 0) {
+      throw new Error("Notification not found.");
+    }
+
+    return result.rows[0];
   },
 };
 
