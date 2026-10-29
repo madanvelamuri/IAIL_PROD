@@ -13,65 +13,40 @@ module.exports = function authMiddleware(req, res, next) {
 
   const parts = authHeader.trim().split(/\s+/);
 
-  if (parts.length !== 2 || parts[0].toLowerCase() !== "bearer") {
+  if (parts.length !== 2 || parts[0] !== "Bearer" || !parts[1]) {
     return res.status(401).json({
-      message: "Access denied. Invalid token format.",
-      code: "INVALID_TOKEN_FORMAT",
-    });
-  }
-
-  if (!parts[1]) {
-    return res.status(401).json({
-      message: "Access denied. Token missing.",
-      code: "NO_TOKEN",
+      message: "Invalid authorization header. Use Bearer token.",
+      code: "INVALID_AUTH_HEADER",
     });
   }
 
   if (!process.env.JWT_SECRET) {
-    console.error("JWT_SECRET environment variable is missing.");
+    console.error("JWT_SECRET is missing.");
 
     return res.status(500).json({
-      message: "Internal server error.",
-      code: "MISSING_SERVER_SECRET",
+      message: "Server authentication configuration error.",
+      code: "JWT_SECRET_MISSING",
     });
   }
 
   try {
-    const verified = jwt.verify(
-      parts[1],
-      process.env.JWT_SECRET
-    );
+    const verified = jwt.verify(parts[1], process.env.JWT_SECRET);
 
-    const userId = verified.id ?? verified.userId;
-
-    if (
-      userId === undefined ||
-      userId === null ||
-      !/^[1-9]\d*$/.test(String(userId))
-    ) {
-      return res.status(401).json({
-        message: "Token does not contain a valid user ID.",
-        code: "INVALID_TOKEN_PAYLOAD",
-      });
-    }
-
-    req.user = {
-      id: String(userId),
-    };
+    // Keep the verified token payload.
+    // The login route must include the database user's ID.
+    req.user = verified;
 
     return next();
   } catch (error) {
     if (error.name === "TokenExpiredError") {
       return res.status(401).json({
-        message: "Token has expired. Please log in again.",
+        message: "Session expired. Please log in again.",
         code: "TOKEN_EXPIRED",
       });
     }
 
-    console.error("JWT verification failed:", error.message);
-
     return res.status(401).json({
-      message: "Invalid or corrupted token.",
+      message: "Invalid token. Please log in again.",
       code: "INVALID_TOKEN",
     });
   }

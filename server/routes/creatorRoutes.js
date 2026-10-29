@@ -10,32 +10,56 @@ const router = express.Router();
 router.use(auth);
 
 // ======================================================
-// ADMIN AUTHORIZATION
+// ADMIN AUTHORIZATION — DATABASE ROLE BASED
 // ======================================================
 
-function requireCreator(req, res, next) {
-  const allowedEmails = (process.env.ADMIN_EMAILS || "")
-    .split(",")
-    .map((email) => email.trim().toLowerCase())
-    .filter(Boolean);
+async function requireCreator(req, res, next) {
+  const userId = Number(req.user?.id);
 
-  const userEmail = String(req.user?.email || "")
-    .trim()
-    .toLowerCase();
-
-  if (allowedEmails.length === 0) {
-    return res.status(503).json({
-      message: "ADMIN_EMAILS is not configured.",
+  if (!Number.isSafeInteger(userId) || userId <= 0) {
+    return res.status(401).json({
+      message: "Invalid user ID. Please log in again.",
+      code: "USER_ID_MISSING",
     });
   }
 
-  if (!userEmail || !allowedEmails.includes(userEmail)) {
-    return res.status(403).json({
-      message: "Creator access denied.",
+  try {
+    // Always check the CURRENT role in the database.
+    // Do not trust an admin role stored in the JWT.
+    const result = await db.query(
+      `SELECT id, role
+       FROM public.users
+       WHERE id = $1
+       LIMIT 1`,
+      [userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(401).json({
+        message: "User account not found. Please log in again.",
+        code: "USER_NOT_FOUND",
+      });
+    }
+
+    const user = result.rows[0];
+
+    if (String(user.role || "").trim().toLowerCase() !== "admin") {
+      return res.status(403).json({
+        message: "Creator access denied. Admin role required.",
+        code: "ADMIN_REQUIRED",
+      });
+    }
+
+    req.creator = user;
+    return next();
+  } catch (error) {
+    console.error("Creator authorization error:", error.message);
+
+    return res.status(500).json({
+      message: "Unable to verify administrator permissions.",
+      code: "ROLE_CHECK_FAILED",
     });
   }
-
-  next();
 }
 
 // ======================================================
@@ -214,10 +238,6 @@ router.get("/access-requests", requireCreator, async (req, res) => {
 // ======================================================
 
 // POST /api/creator/access-requests/:id/create-account
-//
-// Admin selects a pending request and approves its role.
-// The stored bcrypt hash is copied directly into users.password.
-// The plaintext password and hash are never returned.
 router.post(
   "/access-requests/:id/create-account",
   requireCreator,
@@ -248,13 +268,11 @@ router.post(
     let transactionStarted = false;
 
     try {
-      // A transaction keeps account creation and approval together.
       client = await db.connect();
 
       await client.query("BEGIN");
       transactionStarted = true;
 
-      // Lock the request so two admins cannot approve it simultaneously.
       const requestResult = await client.query(
         `SELECT
            id,
@@ -280,7 +298,9 @@ router.post(
 
       const accessRequest = requestResult.rows[0];
 
-      if (accessRequest.status !== "pending") {
+      if (
+        String(accessRequest.status || "").toLowerCase() !== "pending"
+      ) {
         await client.query("ROLLBACK");
         transactionStarted = false;
 
@@ -290,6 +310,7 @@ router.post(
       }
 
       const name = String(accessRequest.name || "").trim();
+
       const email = String(accessRequest.email || "")
         .trim()
         .toLowerCase();
@@ -311,11 +332,10 @@ router.post(
         });
       }
 
-      // This flow requires a hash saved when the request was submitted.
-      // Do not fall back to a plaintext password.
+      // Only accept an existing bcrypt password hash.
       if (
         typeof passwordHash !== "string" ||
-        !passwordHash.startsWith("$2")
+        !/^\$2[aby]\$/.test(passwordHash)
       ) {
         await client.query("ROLLBACK");
         transactionStarted = false;
@@ -326,8 +346,6 @@ router.post(
         });
       }
 
-      // The role comes from the authorized admin's approval action,
-      // not automatically from the public request.
       const existingUser = await client.query(
         `SELECT id
          FROM public.users
@@ -345,8 +363,7 @@ router.post(
         });
       }
 
-      // password_hash is already bcrypt-hashed.
-      // Do NOT bcrypt.hash() it again.
+      // The password is already hashed. Do not hash it again.
       const createdUser = await client.query(
         `INSERT INTO public.users (name, email, password, role)
          VALUES ($1, $2, $3, $4)
@@ -354,7 +371,6 @@ router.post(
         [name, email, passwordHash, role]
       );
 
-      // Approve the request only after creating the account.
       const updatedRequest = await client.query(
         `UPDATE public.access_requests
          SET status = 'approved',
@@ -383,7 +399,10 @@ router.post(
         try {
           await client.query("ROLLBACK");
         } catch (rollbackError) {
-          console.error("Access request rollback failed:", rollbackError.message);
+          console.error(
+            "Access request rollback failed:",
+            rollbackError.message
+          );
         }
       }
 
@@ -415,7 +434,7 @@ router.post(
 // USER ACCOUNT MANAGEMENT
 // ======================================================
 
-// GET all user accounts — admin only.
+// GET all users — admin only.
 // Never return password hashes.
 router.get("/users", requireCreator, async (req, res) => {
   try {
@@ -438,8 +457,7 @@ router.get("/users", requireCreator, async (req, res) => {
   }
 });
 
-// CREATE account directly — admin only.
-// Used when no access request has been selected.
+// CREATE user directly — admin only.
 router.post("/users", requireCreator, async (req, res) => {
   const name = String(req.body?.name || "").trim();
 
