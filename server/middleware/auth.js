@@ -1,3 +1,4 @@
+
 const jwt = require("jsonwebtoken");
 
 module.exports = function authMiddleware(req, res, next) {
@@ -12,16 +13,14 @@ module.exports = function authMiddleware(req, res, next) {
 
   const parts = authHeader.trim().split(/\s+/);
 
-  if (parts.length !== 2 || parts[0] !== "Bearer") {
+  if (parts.length !== 2 || parts[0].toLowerCase() !== "bearer") {
     return res.status(401).json({
       message: "Access denied. Invalid token format.",
       code: "INVALID_TOKEN_FORMAT",
     });
   }
 
-  const token = parts[1];
-
-  if (!token) {
+  if (!parts[1]) {
     return res.status(401).json({
       message: "Access denied. Token missing.",
       code: "NO_TOKEN",
@@ -38,9 +37,27 @@ module.exports = function authMiddleware(req, res, next) {
   }
 
   try {
-    const verified = jwt.verify(token, process.env.JWT_SECRET);
+    const verified = jwt.verify(
+      parts[1],
+      process.env.JWT_SECRET
+    );
 
-    req.user = verified;
+    const userId = verified.id ?? verified.userId;
+
+    if (
+      userId === undefined ||
+      userId === null ||
+      !/^[1-9]\d*$/.test(String(userId))
+    ) {
+      return res.status(401).json({
+        message: "Token does not contain a valid user ID.",
+        code: "INVALID_TOKEN_PAYLOAD",
+      });
+    }
+
+    req.user = {
+      id: String(userId),
+    };
 
     return next();
   } catch (error) {
