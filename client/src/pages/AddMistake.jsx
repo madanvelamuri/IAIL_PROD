@@ -317,8 +317,8 @@ export default function AddMistake() {
       data.append("claim_id", form.claim_id.trim());
       data.append("employee_name", form.employee_name.trim());
       data.append("mistake_type", form.mistake_type.trim());
-      data.append("description", form.description.trim());
       data.append("condition_status", mistakeCondition || "");
+      data.append("description", form.description.trim());
       data.append("is_verification", String(form.is_verification));
 
       if (form.screenshot) {

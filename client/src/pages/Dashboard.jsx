@@ -27,6 +27,49 @@ ChartJS.register(
   Filler
 );
 
+
+// Show the specific condition in the Dashboard instead of the combined
+// category label (for example, "Medical Scheme Provider Not Added").
+const getDisplayMistakeType = (mistake) => {
+  const type = String(mistake?.mistake_type || "").trim();
+  const condition = String(mistake?.condition_status || "").trim().toLowerCase();
+
+  if (!condition) return type;
+
+  const normalizedType = type.toLowerCase();
+  const isCombinedType = /\bor\b/i.test(type);
+
+  // If this is not a combined category, don't append a duplicate condition
+  // to labels such as "ICD Incorrect".
+  if (!isCombinedType) return type;
+
+  const base = type
+    .replace(/\s+selected\s+incorrect\s+or\s+not selected.*$/i, "")
+    .replace(/\s+(?:not added|not mentioned|not mentiond|not selected|incorrect|missing)\s+or\s+(?:incorrect|not added|not mentioned|not mentiond|not selected|added|selected).*$/i, "")
+    .replace(/\s+(?:incorrect|not added|not mentioned|not mentiond|not selected)\s+or\s+(?:not added|not mentioned|not mentiond|not selected|incorrect).*$/i, "")
+    .replace(/[\s–—-]+$/, "")
+    .trim();
+
+  if (["not added", "missing", "not present"].includes(condition)) {
+    return `${base} Not Added`;
+  }
+
+  if (["not mentioned", "not mentiond"].includes(condition)) {
+    return `${base} Not Mentioned`;
+  }
+
+  if (["not selected", "not chosen", "not selected/pre-auth"].includes(condition)) {
+    return `${base} Not Selected`;
+  }
+
+  if (["incorrect", "wrong", "incorrectly entered"].includes(condition)) {
+    return `${base} Incorrect`;
+  }
+
+  // Keep any other saved condition visible.
+  return `${base} — ${condition.replace(/\b\w/g, (char) => char.toUpperCase())}`;
+};
+
 export default function Dashboard() {
   const [mistakes, setMistakes] = useState([]);
   const [filteredData, setFilteredData] = useState([]);
@@ -71,8 +114,9 @@ export default function Dashboard() {
   const fetchMistakes = async () => {
     try {
       const res = await API.get("/mistakes");
-      setMistakes(res.data);
-      setFilteredData(res.data);
+      const rows = Array.isArray(res.data) ? res.data : [];
+      setMistakes(rows);
+      setFilteredData(rows);
     } catch (err) {
       console.error("Fetch error:", err);
     }
@@ -86,8 +130,8 @@ export default function Dashboard() {
       );
     }
     if (filters.type) {
-      data = data.filter(m =>
-        m.mistake_type.toLowerCase().includes(filters.type.toLowerCase())
+      data = data.filter((m) =>
+        getDisplayMistakeType(m).toLowerCase().includes(filters.type.toLowerCase())
       );
     }
     if (filters.from) {
@@ -176,6 +220,7 @@ export default function Dashboard() {
       "Claim ID",
       "Employee Name",
       "Mistake Type",
+      "Condition Status",
       "Description",
       "Created Date",
       "Screenshot URL",
@@ -197,7 +242,8 @@ export default function Dashboard() {
       return [
         `="${String(m.claim_id || "")}"`,
         `"${(m.employee_name || "").replace(/"/g, '""')}"`,
-        `"${(m.mistake_type || "").replace(/"/g, '""')}"`,
+        `"${getDisplayMistakeType(m).replace(/"/g, '""')}"`,
+        `"${(m.condition_status || "").replace(/"/g, '""')}"`,
         `"${(m.description || "").replace(/"/g, '""')}"`,
         `"${formattedDate}"`,
         m.screenshot_url
@@ -265,8 +311,9 @@ export default function Dashboard() {
   ).length;
 
   const typeFrequency = {};
-  filteredData.forEach(m => {
-    typeFrequency[m.mistake_type] = (typeFrequency[m.mistake_type] || 0) + 1;
+  filteredData.forEach((m) => {
+    const displayType = getDisplayMistakeType(m);
+    typeFrequency[displayType] = (typeFrequency[displayType] || 0) + 1;
   });
 
   const topMistake = Object.keys(typeFrequency).length > 0
@@ -288,8 +335,8 @@ export default function Dashboard() {
 
   /* Calculate Repeated Mistakes Map */
   const repeatedMistakeMap = {};
-  filteredData.forEach(m => {
-    const key = `${m.employee_name}_${m.mistake_type}`;
+  filteredData.forEach((m) => {
+    const key = `${m.employee_name}_${getDisplayMistakeType(m)}`;
     repeatedMistakeMap[key] = (repeatedMistakeMap[key] || 0) + 1;
   });
 
@@ -449,16 +496,23 @@ export default function Dashboard() {
               <tr key={m.id} className="border-t hover:bg-slate-50 transition">
                 <td className="p-4 text-blue-600 font-bold">#{String(m.claim_id)}</td>
                 <td className="p-4 font-medium">{m.employee_name}</td>
-                <td className="p-4"><span className="bg-slate-100 px-2 py-1 rounded text-xs font-bold uppercase">{m.mistake_type}</span></td>
+                <td className="p-4">
+                  <span
+                    className="bg-slate-100 px-2 py-1 rounded text-xs font-bold uppercase"
+                    title={m.condition_status ? `Condition: ${m.condition_status}` : m.mistake_type}
+                  >
+                    {getDisplayMistakeType(m)}
+                  </span>
+                </td>
                 <td className="p-4 text-slate-600 text-sm max-w-[360px]"><div className="whitespace-normal break-words line-clamp-3" title={m.description || ""}>{m.description || "No description available"}</div></td>
                 <td className="p-4 text-slate-500 text-sm">
                   {new Date(m.created_at).toLocaleDateString()}
                 </td>
 
                 <td className="p-4 text-center">
-                  {repeatedMistakeMap[`${m.employee_name}_${m.mistake_type}`] > 1 ? (
+                  {repeatedMistakeMap[`${m.employee_name}_${getDisplayMistakeType(m)}`] > 1 ? (
                     <span className="font-bold text-red-600">
-                      Repeated ({repeatedMistakeMap[`${m.employee_name}_${m.mistake_type}`]})
+                      Repeated ({repeatedMistakeMap[`${m.employee_name}_${getDisplayMistakeType(m)}`]})
                     </span>
                   ) : (
                     ""
