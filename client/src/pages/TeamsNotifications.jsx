@@ -160,6 +160,79 @@ const TeamsNotifications = () => {
     }
   };
 
+
+  // Display the condition-specific mistake label when the API includes it.
+  // The condition must be persisted and returned by the Teams notification API.
+  const getDisplayMistakeType = (row) => {
+    const type = String(row?.mistake_type || "").trim();
+    const condition = String(
+      row?.condition_status || row?.conditionStatus || ""
+    ).trim().toLowerCase();
+
+    if (!type || !condition) return type;
+
+    const isOneOf = (values) => values.includes(condition);
+
+    if (/medical scheme provider/i.test(type)) {
+      if (isOneOf(["not added", "missing", "not mentioned"])) {
+        return "Medical Scheme Provider Not Added";
+      }
+      if (condition === "incorrect") {
+        return "Medical Scheme Provider Incorrect";
+      }
+    }
+
+    if (/gender/i.test(type)) {
+      if (isOneOf(["not mentioned", "not added", "missing"])) {
+        return "Gender Not Mentioned";
+      }
+      if (condition === "incorrect") {
+        return "Gender Incorrect";
+      }
+    }
+
+    if (/\\bDOB\\b|date of birth/i.test(type)) {
+      if (isOneOf(["not mentioned", "not added", "missing"])) {
+        return "DOB Not Mentioned";
+      }
+      if (condition === "incorrect") {
+        return "DOB Incorrect";
+      }
+    }
+
+    if (isOneOf(["not added", "missing"])) {
+      return type
+        .replace(/\\s+(?:or\\s+)?incorrect\\s*$/i, "")
+        .replace(/\\s+or\\s+not\\s+added\\s*$/i, "")
+        .trim();
+    }
+
+    if (condition === "not mentioned") {
+      return type
+        .replace(/\\s+or\\s+incorrect\\s*$/i, "")
+        .trim();
+    }
+
+    if (condition === "not selected") {
+      return type
+        .replace(/\\s+(?:incorrect\\s+or\\s+)?not\\s+selected\\s*$/i, "")
+        .replace(/\\s+selected\\s+incorrect\\s*$/i, "")
+        .trim() + " Not Selected";
+    }
+
+    if (condition === "incorrect") {
+      const base = type
+        .replace(/\\s+(?:not\\s+added|not\\s+mentioned|not\\s+selected|missing)\\s+or\\s+incorrect\\s*$/i, "")
+        .replace(/\\s+incorrect\\s+or\\s+not\\s+selected\\s*$/i, "")
+        .replace(/\\s+incorrect\\s*$/i, "")
+        .trim();
+
+      return `${base} Incorrect`;
+    }
+
+    return type;
+  };
+
   // Helper to format ISO timestamps neatly
   const formatDateTime = (rawDate) => {
     if (!rawDate) return '—';
@@ -373,7 +446,7 @@ const TeamsNotifications = () => {
                   <tr key={row.id} className="hover:bg-slate-50/80 transition">
                     <td className="py-3.5 px-4 font-bold text-slate-900">{row.claim_id}</td>
                     <td className="py-3.5 px-4 text-slate-600 font-medium">{row.employee_name}</td>
-                    <td className="py-3.5 px-4 font-semibold text-slate-800">{row.mistake_type}</td>
+                    <td className="py-3.5 px-4 font-semibold text-slate-800">{getDisplayMistakeType(row)}</td>
                     <td className="py-3.5 px-4 text-slate-500 max-w-xs truncate">{row.description}</td>
                     <td className="py-3.5 px-4 text-slate-500 whitespace-nowrap">{formatDateTime(row.created_date || row.created_at)}</td>
                     <td className="py-3.5 px-4 font-medium text-slate-600">{row.teams_group || 'QC Team'}</td>
