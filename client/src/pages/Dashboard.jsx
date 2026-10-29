@@ -77,7 +77,7 @@ export default function Dashboard() {
   const [showEmployeeTable, setShowEmployeeTable] = useState(true);
 
   /* Version State */
-  const CURRENT_VERSION = "1.3.3";
+  const CURRENT_VERSION = "1.3.4";
   const [showUpdate, setShowUpdate] = useState(false);
 
   /* Zoom State */
@@ -391,16 +391,30 @@ export default function Dashboard() {
               <h4 className="font-bold text-slate-800">New Version {CURRENT_VERSION}</h4>
             </div>
             <ul className="text-xs text-slate-600 space-y-1.5 ml-1">
-              <li>📋 <b>Paste Screenshot:</b> Use <b>Ctrl + V</b> to paste screenshot directly.</li>
-              <li>🖼 <b>Screenshot Preview:</b> View screenshot before submitting mistake.</li>
-              <li>❌ <b>Remove Screenshot:</b> Easily remove uploaded image.</li>
-              <li>⚡ <b>Faster QC Workflow:</b> No need to browse files manually.</li>
-              <li>📝 <b>Detailed Descriptions:</b> New mistake descriptions, including Tariff.</li>
-              <li>🔎 <b>Condition-Based Descriptions:</b> Separate Missing and Incorrect descriptions for Gender and DOB.</li>
+             <li>📋 <b>Paste Screenshot:</b> Use <b>Ctrl + V</b> to paste a screenshot directly.</li>
+<li>🖼️ <b>Screenshot Preview:</b> Preview screenshots before submitting a mistake.</li>
+<li>❌ <b>Remove Screenshot:</b> Easily remove an uploaded image.</li>
+<li>⚡ <b>Faster QC Workflow:</b> No need to browse files manually.</li>
+<li>📝 <b>Detailed Descriptions:</b> Added detailed mistake descriptions, including Tariff.</li>
+<li>🔎 <b>Condition-Based Descriptions:</b> Separate Missing and Incorrect descriptions for Gender and DOB.</li>
 
-              <li className="pt-2 text-[10px] font-bold text-slate-500 uppercase tracking-tight">Submission Rules:</li>
-              <li className="text-blue-500 font-semibold italic">!! Optional For Already Approved Claims</li>
-              <li className="text-amber-600 font-semibold italic">!! Mandatory For Verified Claims</li>
+<li>👥 <b>Employee Management:</b> Add and manage employee names from the Creator Dashboard.</li>
+<li>🏷️ <b>Mistake Type Management:</b> Create and manage mistake types, descriptions, and conditions.</li>
+<li>🔐 <b>Role-Based Admin Access:</b> Verify administrator permissions using the database user role instead of <code>ADMIN_EMAILS</code>.</li>
+<li>📋 <b>Access Request Management:</b> View pending access requests and approve them by creating user accounts.</li>
+<li>👤 <b>User Account Management:</b> View registered users and create accounts with assigned roles.</li>
+<li>🛡️ <b>Secure Authorization:</b> Restrict Creator Dashboard management actions to authorized administrators.</li>
+<li>⚡ <b>Improved Workflow:</b> Keep Creator Dashboard management functions organized and easier to maintain.</li>
+
+<li className="pt-2 text-[10px] font-bold text-slate-500 uppercase tracking-tight">
+  Submission Rules:
+</li>
+<li className="text-blue-500 font-semibold italic">
+  !! Optional for already approved claims
+</li>
+<li className="text-amber-600 font-semibold italic">
+  !! Mandatory for verified claims
+</li>
             </ul>
             <button 
               onClick={handleCloseUpdate}
@@ -550,7 +564,7 @@ export default function Dashboard() {
       </div>
 
       <div className="fixed bottom-4 right-4 bg-slate-800/80 backdrop-blur-sm text-white text-[10px] px-3 py-1 rounded-full opacity-60 hover:opacity-100 transition shadow-lg border border-white/10 z-40">
-        Build: v{CURRENT_VERSION}-stable
+        Build: v{CURRENT_VERSION}
       </div>
 
       {/* ZOOMABLE IMAGE MODAL */}
