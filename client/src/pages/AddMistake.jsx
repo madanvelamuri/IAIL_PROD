@@ -235,6 +235,43 @@ export default function AddMistake() {
     setShowMistakeSuggestions(false);
   };
 
+  // Creator Dashboard stores condition-specific descriptions in the existing
+  // description field using labels such as "Not Added:" and "Incorrect:".
+  // Select only the description that matches the condition chosen here.
+  const getCustomConditionDescription = (rawDescription, condition) => {
+    const description = String(rawDescription || "").trim();
+    if (!description) return "";
+
+    const lines = description.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+    const labelled = lines.map((line) => {
+      const match = line.match(/^(not\s*added|missing|incorrect|general)\s*:\s*(.*)$/i);
+      return match
+        ? { label: match[1].toLowerCase().replace(/\s+/g, " "), text: match[2].trim() }
+        : null;
+    }).filter(Boolean);
+
+    if (labelled.length) {
+      const normalizedCondition = String(condition || "").trim().toLowerCase();
+      const wantedLabels = ["missing", "not added"].includes(normalizedCondition)
+        ? ["not added", "missing"]
+        : normalizedCondition === "incorrect"
+          ? ["incorrect"]
+          : [normalizedCondition];
+
+      const selected = labelled.find((item) => wantedLabels.includes(item.label));
+      if (selected?.text) return selected.text;
+
+      // A General description is only a fallback when no matching condition
+      // description was supplied for this custom mistake type.
+      const general = labelled.find((item) => item.label === "general");
+      return general?.text || "";
+    }
+
+    // Backwards compatibility for custom mistake types created before
+    // condition-specific description fields were introduced.
+    return description;
+  };
+
   const handleMistakeConditionChange = (condition) => {
     setMistakeCondition(condition);
     setForm((prev) => {
@@ -245,13 +282,14 @@ export default function AddMistake() {
       );
 
       if (customType) {
-        const baseDescription = String(customType.description || "").trim();
-        const conditionText = `Condition: ${condition}.`;
+        const selectedDescription = getCustomConditionDescription(
+          customType.description,
+          condition
+        );
+
         return {
           ...prev,
-          description: baseDescription
-            ? `${baseDescription} ${conditionText}`
-            : conditionText
+          description: selectedDescription || `Condition: ${condition}.`
         };
       }
 
