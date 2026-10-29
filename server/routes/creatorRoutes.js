@@ -173,6 +173,40 @@ router.post("/employees", requireCreator, async (req, res) => {
 });
 
 // ======================================================
+// PENDING ACCESS REQUESTS
+// ======================================================
+
+// GET pending access requests — admin only.
+// Used by the Creator Dashboard to display selectable requests.
+router.get("/access-requests", requireCreator, async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT
+        id,
+        name,
+        email,
+        requested_role,
+        status,
+        created_at
+      FROM public.access_requests
+      WHERE status = $1
+      ORDER BY created_at ASC, id ASC
+    `, ["pending"]);
+
+    return res.status(200).json(result.rows);
+  } catch (error) {
+    console.error("Load pending access requests:", {
+      message: error.message,
+      code: error.code,
+    });
+
+    return res.status(500).json({
+      message: "Unable to load pending access requests.",
+    });
+  }
+});
+
+// ======================================================
 // USER ACCOUNT MANAGEMENT
 // ======================================================
 
@@ -223,6 +257,7 @@ router.post("/users", requireCreator, async (req, res) => {
     });
   }
 
+  // Correct email validation regex.
   if (
     !email ||
     email.length > 255 ||
@@ -283,7 +318,6 @@ router.post("/users", requireCreator, async (req, res) => {
       });
     }
 
-    // Keep detailed diagnostics in server logs only.
     console.error("Create user account failed:", {
       message: error.message,
       code: error.code,

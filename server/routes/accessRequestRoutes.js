@@ -4,7 +4,10 @@ const db = require("../config/db");
 
 const router = express.Router();
 
-// Submit a new user access request
+// ==========================================
+// SUBMIT USER ACCESS REQUEST
+// POST /api/access-requests
+// ==========================================
 router.post("/", async (req, res) => {
   const name = String(req.body?.name || "").trim();
 
@@ -44,6 +47,7 @@ router.post("/", async (req, res) => {
   }
 
   try {
+    // Insert the access request into PostgreSQL/Supabase.
     const result = await db.query(
       `INSERT INTO public.access_requests
         (name, email, requested_role)
@@ -68,7 +72,7 @@ router.post("/", async (req, res) => {
       code: error.code,
     });
 
-    // Handle duplicate or database constraint errors
+    // Handle database unique-constraint violations.
     if (error.code === "23505") {
       return res.status(409).json({
         message: "An access request with these details already exists.",
