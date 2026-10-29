@@ -9,7 +9,10 @@ const router = express.Router();
 // All Creator API endpoints require a valid login.
 router.use(auth);
 
-// Restrict administrative operations to configured administrator emails.
+// ======================================================
+// ADMIN AUTHORIZATION
+// ======================================================
+
 function requireCreator(req, res, next) {
   const allowedEmails = (process.env.ADMIN_EMAILS || "")
     .split(",")
@@ -176,8 +179,8 @@ router.post("/employees", requireCreator, async (req, res) => {
 // PENDING ACCESS REQUESTS
 // ======================================================
 
-// GET pending access requests — admin only.
-// Used by the Creator Dashboard to display selectable requests.
+// GET pending requests — admin only.
+// Never return password_hash to the browser.
 router.get("/access-requests", requireCreator, async (req, res) => {
   try {
     const result = await db.query(`
@@ -189,9 +192,9 @@ router.get("/access-requests", requireCreator, async (req, res) => {
         status,
         created_at
       FROM public.access_requests
-      WHERE status = $1
+      WHERE status = 'pending'
       ORDER BY created_at ASC, id ASC
-    `, ["pending"]);
+    `);
 
     return res.status(200).json(result.rows);
   } catch (error) {
@@ -205,6 +208,208 @@ router.get("/access-requests", requireCreator, async (req, res) => {
     });
   }
 });
+
+// ======================================================
+// CREATE USER FROM ACCESS REQUEST
+// ======================================================
+
+// POST /api/creator/access-requests/:id/create-account
+//
+// Admin selects a pending request and approves its role.
+// The stored bcrypt hash is copied directly into users.password.
+// The plaintext password and hash are never returned.
+router.post(
+  "/access-requests/:id/create-account",
+  requireCreator,
+  async (req, res) => {
+    const requestId = String(req.params.id || "").trim();
+
+    const role = String(req.body?.role || "")
+      .trim()
+      .toLowerCase();
+
+    if (!/^\d+$/.test(requestId) || requestId === "0") {
+      return res.status(400).json({
+        message: "Invalid access request ID.",
+      });
+    }
+
+    if (!["user", "admin"].includes(role)) {
+      return res.status(400).json({
+        message: "Role must be either user or admin.",
+      });
+    }
+
+    const reviewerEmail = String(req.user?.email || "")
+      .trim()
+      .toLowerCase();
+
+    let client;
+    let transactionStarted = false;
+
+    try {
+      // A transaction keeps account creation and approval together.
+      client = await db.connect();
+
+      await client.query("BEGIN");
+      transactionStarted = true;
+
+      // Lock the request so two admins cannot approve it simultaneously.
+      const requestResult = await client.query(
+        `SELECT
+           id,
+           name,
+           email,
+           requested_role,
+           password_hash,
+           status
+         FROM public.access_requests
+         WHERE id = $1
+         FOR UPDATE`,
+        [requestId]
+      );
+
+      if (requestResult.rows.length === 0) {
+        await client.query("ROLLBACK");
+        transactionStarted = false;
+
+        return res.status(404).json({
+          message: "Access request not found.",
+        });
+      }
+
+      const accessRequest = requestResult.rows[0];
+
+      if (accessRequest.status !== "pending") {
+        await client.query("ROLLBACK");
+        transactionStarted = false;
+
+        return res.status(409).json({
+          message: "This access request has already been processed.",
+        });
+      }
+
+      const name = String(accessRequest.name || "").trim();
+      const email = String(accessRequest.email || "")
+        .trim()
+        .toLowerCase();
+
+      const passwordHash = accessRequest.password_hash;
+
+      if (
+        !name ||
+        name.length > 100 ||
+        !email ||
+        email.length > 255 ||
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+      ) {
+        await client.query("ROLLBACK");
+        transactionStarted = false;
+
+        return res.status(400).json({
+          message: "The access request contains invalid account details.",
+        });
+      }
+
+      // This flow requires a hash saved when the request was submitted.
+      // Do not fall back to a plaintext password.
+      if (
+        typeof passwordHash !== "string" ||
+        !passwordHash.startsWith("$2")
+      ) {
+        await client.query("ROLLBACK");
+        transactionStarted = false;
+
+        return res.status(409).json({
+          message:
+            "This request has no valid stored password hash. Ask the user to submit a new access request.",
+        });
+      }
+
+      // The role comes from the authorized admin's approval action,
+      // not automatically from the public request.
+      const existingUser = await client.query(
+        `SELECT id
+         FROM public.users
+         WHERE LOWER(email) = $1
+         LIMIT 1`,
+        [email]
+      );
+
+      if (existingUser.rows.length > 0) {
+        await client.query("ROLLBACK");
+        transactionStarted = false;
+
+        return res.status(409).json({
+          message: "An account with this email already exists.",
+        });
+      }
+
+      // password_hash is already bcrypt-hashed.
+      // Do NOT bcrypt.hash() it again.
+      const createdUser = await client.query(
+        `INSERT INTO public.users (name, email, password, role)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id, name, email, role`,
+        [name, email, passwordHash, role]
+      );
+
+      // Approve the request only after creating the account.
+      const updatedRequest = await client.query(
+        `UPDATE public.access_requests
+         SET status = 'approved',
+             reviewed_at = CURRENT_TIMESTAMP,
+             reviewed_by = $2
+         WHERE id = $1
+           AND status = 'pending'
+         RETURNING id, status, reviewed_at, reviewed_by`,
+        [requestId, reviewerEmail]
+      );
+
+      if (updatedRequest.rows.length !== 1) {
+        throw new Error("Could not mark the access request as approved.");
+      }
+
+      await client.query("COMMIT");
+      transactionStarted = false;
+
+      return res.status(201).json({
+        message: "Account created and access request approved.",
+        user: createdUser.rows[0],
+        request: updatedRequest.rows[0],
+      });
+    } catch (error) {
+      if (client && transactionStarted) {
+        try {
+          await client.query("ROLLBACK");
+        } catch (rollbackError) {
+          console.error("Access request rollback failed:", rollbackError.message);
+        }
+      }
+
+      if (error.code === "23505") {
+        return res.status(409).json({
+          message: "An account with this email already exists.",
+        });
+      }
+
+      console.error("Create account from access request failed:", {
+        message: error.message,
+        code: error.code,
+        constraint: error.constraint,
+        table: error.table,
+      });
+
+      return res.status(500).json({
+        message: "Unable to create an account from this access request.",
+      });
+    } finally {
+      if (client) {
+        client.release();
+      }
+    }
+  }
+);
 
 // ======================================================
 // USER ACCOUNT MANAGEMENT
@@ -233,8 +438,8 @@ router.get("/users", requireCreator, async (req, res) => {
   }
 });
 
-// CREATE account — admin only.
-// Existing database schema uses "password", not "password_hash".
+// CREATE account directly — admin only.
+// Used when no access request has been selected.
 router.post("/users", requireCreator, async (req, res) => {
   const name = String(req.body?.name || "").trim();
 
@@ -257,7 +462,6 @@ router.post("/users", requireCreator, async (req, res) => {
     });
   }
 
-  // Correct email validation regex.
   if (
     !email ||
     email.length > 255 ||
@@ -281,7 +485,6 @@ router.post("/users", requireCreator, async (req, res) => {
   }
 
   try {
-    // Check for an existing email.
     const existingUser = await db.query(
       `SELECT id
        FROM public.users
@@ -296,10 +499,8 @@ router.post("/users", requireCreator, async (req, res) => {
       });
     }
 
-    // Hash the password before storing it.
     const passwordHash = await bcrypt.hash(password, 12);
 
-    // Match the existing public.users schema.
     const result = await db.query(
       `INSERT INTO public.users (name, email, password, role)
        VALUES ($1, $2, $3, $4)
@@ -322,8 +523,6 @@ router.post("/users", requireCreator, async (req, res) => {
       message: error.message,
       code: error.code,
       constraint: error.constraint,
-      table: error.table,
-      column: error.column,
     });
 
     return res.status(500).json({
