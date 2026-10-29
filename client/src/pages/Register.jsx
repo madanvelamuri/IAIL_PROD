@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import API from "../services/api";
 import StarBackground from "../components/StarBackground";
@@ -7,155 +8,174 @@ export default function Register() {
   const [form, setForm] = useState({
     name: "",
     email: "",
-    password: "",
+    requestedRole: "user",
   });
 
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
 
-  const handleRegister = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    setSuccess(false);
     setLoading(true);
 
     try {
-      await API.post("/auth/register", form);
+      await API.post("/access-requests", {
+        name: form.name.trim(),
+        email: form.email.trim().toLowerCase(),
+        requestedRole: form.requestedRole,
+      });
 
       setSuccess(true);
-
-      setTimeout(() => {
-        window.location.href = "/";
-      }, 1500);
-
+      setForm({
+        name: "",
+        email: "",
+        requestedRole: "user",
+      });
     } catch (err) {
-      setLoading(false);
       setError(
-        err.response?.data?.message || "Registration failed. Try again."
+        err.response?.data?.message ||
+          "Unable to submit your request. Please try again."
       );
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="relative flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-black overflow-hidden">
-      
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-black px-4 py-8">
       <StarBackground />
 
       <motion.div
-        initial={{ opacity: 0, scale: 0.9, y: 40 }}
+        initial={{ opacity: 0, scale: 0.95, y: 30 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        transition={{ duration: 0.8 }}
-        className="relative z-10 w-full max-w-md p-12 rounded-3xl
-        backdrop-blur-3xl bg-white/5 border border-white/10
-        shadow-[0_0_80px_rgba(0,255,255,0.15)]
-        text-white"
+        transition={{ duration: 0.6 }}
+        className="relative z-10 w-full max-w-md rounded-3xl border border-white/10 bg-white/5 p-8 text-white shadow-[0_0_80px_rgba(0,255,255,0.15)] backdrop-blur-3xl sm:p-12"
       >
-        <h2 className="text-4xl font-extrabold text-center mb-12 tracking-wide bg-gradient-to-r from-cyan-400 via-teal-300 to-emerald-400 bg-clip-text text-transparent">
-          Create Account
+        <h2 className="mb-4 text-center text-3xl font-extrabold tracking-wide bg-gradient-to-r from-cyan-400 via-teal-300 to-emerald-400 bg-clip-text text-transparent">
+          Request Access
         </h2>
 
-        <form onSubmit={handleRegister} className="space-y-8">
+        <p className="mb-8 text-center text-sm leading-6 text-gray-300">
+          Submit your details to request access to the Mistake Tracking
+          &amp; Analysis System. An administrator will review your request.
+        </p>
 
-          {/* Name */}
-          <motion.input
-            whileFocus={{ scale: 1.02 }}
-            type="text"
-            required
-            placeholder="Full Name"
-            value={form.name}
-            onChange={(e) =>
-              setForm({ ...form, name: e.target.value })
-            }
-            className="w-full rounded-2xl px-5 py-4
-            bg-white/90 text-black border border-gray-200
-            focus:outline-none focus:ring-2 focus:ring-cyan-400
-            transition duration-300"
-          />
-
-          {/* Email */}
-          <motion.input
-            whileFocus={{ scale: 1.02 }}
-            type="email"
-            required
-            placeholder="Email Address"
-            value={form.email}
-            onChange={(e) =>
-              setForm({ ...form, email: e.target.value })
-            }
-            className="w-full rounded-2xl px-5 py-4
-            bg-white/90 text-black border border-gray-200
-            focus:outline-none focus:ring-2 focus:ring-cyan-400
-            transition duration-300"
-          />
-
-          {/* Password */}
-          <div className="relative">
-            <motion.input
-              whileFocus={{ scale: 1.02 }}
-              type={showPassword ? "text" : "password"}
-              required
-              placeholder="Password"
-              value={form.password}
-              onChange={(e) =>
-                setForm({ ...form, password: e.target.value })
-              }
-              className="w-full rounded-2xl px-5 py-4 pr-12
-              bg-white/90 text-black border border-gray-200
-              focus:outline-none focus:ring-2 focus:ring-cyan-400
-              transition duration-300"
-            />
-
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 hover:text-black transition"
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div>
+            <label
+              htmlFor="request-name"
+              className="mb-2 block text-sm font-medium text-gray-200"
             >
-              {showPassword ? "🙈" : "👁"}
-            </button>
+              Full Name
+            </label>
+            <input
+              id="request-name"
+              type="text"
+              required
+              maxLength={100}
+              autoComplete="name"
+              placeholder="Enter your full name"
+              value={form.name}
+              onChange={(e) =>
+                setForm({ ...form, name: e.target.value })
+              }
+              className="w-full rounded-xl border border-gray-200 bg-white/95 px-4 py-3 text-black outline-none transition focus:ring-2 focus:ring-cyan-400"
+            />
           </div>
 
-          {/* Register Button */}
-          <motion.button
-            whileTap={{ scale: 0.96 }}
-            type="submit"
-            disabled={loading}
-            className="w-full py-4 rounded-2xl font-bold
-            text-slate-900 tracking-wide
-            bg-gradient-to-r from-cyan-400 via-teal-400 to-emerald-400
-            shadow-lg transition-all duration-300
-            flex justify-center items-center gap-3"
-          >
-            {loading ? (
-              <span className="w-5 h-5 border-2 border-slate-900 border-t-transparent rounded-full animate-spin"></span>
-            ) : success ? (
-              "Account Created ✓"
-            ) : (
-              "Register"
-            )}
-          </motion.button>
+          <div>
+            <label
+              htmlFor="request-email"
+              className="mb-2 block text-sm font-medium text-gray-200"
+            >
+              Email Address
+            </label>
+            <input
+              id="request-email"
+              type="email"
+              required
+              maxLength={255}
+              autoComplete="email"
+              placeholder="Enter your work email"
+              value={form.email}
+              onChange={(e) =>
+                setForm({ ...form, email: e.target.value })
+              }
+              className="w-full rounded-xl border border-gray-200 bg-white/95 px-4 py-3 text-black outline-none transition focus:ring-2 focus:ring-cyan-400"
+            />
+          </div>
 
-          {/* Error */}
+          <div>
+            <label
+              htmlFor="request-role"
+              className="mb-2 block text-sm font-medium text-gray-200"
+            >
+              Requested Role
+            </label>
+            <select
+              id="request-role"
+              value={form.requestedRole}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  requestedRole: e.target.value,
+                })
+              }
+              className="w-full rounded-xl border border-gray-200 bg-white/95 px-4 py-3 text-black outline-none transition focus:ring-2 focus:ring-cyan-400"
+            >
+              <option value="user">User</option>
+              <option value="admin">Administrator (approval required)</option>
+            </select>
+            <p className="mt-2 text-xs leading-5 text-gray-400">
+              The selected role is only a request. Administrator access
+              requires explicit approval.
+            </p>
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading || success}
+            className="flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-cyan-400 via-teal-400 to-emerald-400 py-4 font-bold tracking-wide text-slate-900 shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {loading
+              ? "Submitting..."
+              : success
+                ? "Request Submitted ✓"
+                : "Submit Access Request"}
+          </button>
+
           {error && (
-            <div className="text-center text-red-400 font-semibold mt-4">
+            <p role="alert" className="text-center text-sm font-semibold text-red-400">
               {error}
+            </p>
+          )}
+
+          {success && (
+            <div
+              role="status"
+              className="rounded-xl border border-emerald-400/30 bg-emerald-400/10 p-4 text-center text-sm leading-6 text-emerald-300"
+            >
+              Your access request has been submitted successfully.
+              Please wait for administrator review.
             </div>
           )}
         </form>
 
-        {/* Login Link */}
-        <div className="text-center mt-6 text-gray-300 text-sm">
+        <div className="mt-8 text-center text-sm text-gray-300">
           Already have an account?{" "}
           <a
             href="/"
-            className="text-cyan-400 hover:text-emerald-400 font-semibold transition"
+            className="font-semibold text-cyan-400 transition hover:text-emerald-400"
           >
             Login here
           </a>
         </div>
 
-        <p className="text-center text-gray-500 text-sm mt-12 tracking-wide">
-          Mistake Tracking & Analysis System
+        <p className="mt-8 text-center text-sm tracking-wide text-gray-500">
+          Mistake Tracking &amp; Analysis System
         </p>
       </motion.div>
     </div>
