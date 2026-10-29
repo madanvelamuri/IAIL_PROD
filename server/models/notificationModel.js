@@ -2,7 +2,7 @@
 const db = require("../config/db");
 
 const NotificationModel = {
-  // Initialize PostgreSQL tables without deleting existing records.
+  // Initialize tables without deleting existing records.
   initTables: async () => {
     const createLogsTable = `
       CREATE TABLE IF NOT EXISTS teams_notifications (
@@ -41,16 +41,16 @@ const NotificationModel = {
       `);
 
       console.log("[NotificationModel] Tables initialized.");
-    } catch (err) {
+    } catch (error) {
       console.error(
-        "[NotificationModel] Table initialization failed:",
-        err.message
+        "[NotificationModel] Initialization failed:",
+        error.message
       );
-      throw err;
+      throw error;
     }
   },
 
-  // Get notifications with filtering and pagination.
+  // Get notifications with filters and pagination.
   getNotifications: async ({
     fromDate,
     toDate,
@@ -131,13 +131,14 @@ const NotificationModel = {
     };
   },
 
-  // Retrieve the active webhook for a Teams group.
+  // Get an active Teams webhook.
   getWebhookConfig: async (teamsGroup) => {
     const result = await db.query(
       `
         SELECT webhook_url
         FROM teams_configs
-        WHERE group_name = $1 AND is_active = 1
+        WHERE group_name = $1
+          AND is_active = 1
       `,
       [teamsGroup]
     );
@@ -145,29 +146,29 @@ const NotificationModel = {
     return result.rows[0];
   },
 
-  // Update notification status after sending or failing.
+  // Update notification status after a send attempt.
   updateStatus: async (id, status, errorMessage = null) => {
     if (!["Sent", "Failed", "Pending"].includes(status)) {
       throw new Error("Invalid notification status.");
     }
 
-    // Preserve sent_at for already-sent notifications unless status changes.
     return db.query(
       `
         UPDATE teams_notifications
-        SET status = $1,
-            sent_at = CASE
-              WHEN $1 = 'Sent' THEN COALESCE(sent_at, CURRENT_TIMESTAMP)
-              ELSE NULL
-            END,
-            error_message = $3
+        SET
+          status = $1,
+          sent_at = CASE
+            WHEN $1 = 'Sent' THEN CURRENT_TIMESTAMP
+            ELSE NULL
+          END,
+          error_message = $3
         WHERE id = $2
       `,
       [status, id, errorMessage]
     );
   },
 
-  // Retrieve saved Teams settings.
+  // Get all saved Teams settings.
   getAllSettings: async () => {
     const result = await db.query(`
       SELECT id, group_name, webhook_url, is_active
@@ -182,7 +183,11 @@ const NotificationModel = {
   saveSettings: async (groupName, webhookUrl) => {
     const result = await db.query(
       `
-        INSERT INTO teams_configs (group_name, webhook_url, is_active)
+        INSERT INTO teams_configs (
+          group_name,
+          webhook_url,
+          is_active
+        )
         VALUES ($1, $2, 1)
         ON CONFLICT (group_name)
         DO UPDATE SET
@@ -196,14 +201,14 @@ const NotificationModel = {
     return result.rows[0];
   },
 
-  // Synchronize the source mistakes table with Teams notifications.
-  // Existing notification status, sent_at, and error_message are preserved.
+  // Synchronize public.mistakes with teams_notifications.
   syncDashboardData: async () => {
     const client = await db.connect();
 
     try {
       await client.query("BEGIN");
 
+      // Inspect available source columns.
       const columnResult = await client.query(`
         SELECT column_name
         FROM information_schema.columns
@@ -215,14 +220,18 @@ const NotificationModel = {
         columnResult.rows.map((row) => row.column_name.toLowerCase())
       );
 
-      if (
-        !columns.has("claim_id") ||
-        !columns.has("employee_name") ||
-        !columns.has("mistake_type")
-      ) {
-        throw new Error(
-          "The public.mistakes table is missing a required column."
-        );
+      const requiredColumns = [
+        "claim_id",
+        "employee_name",
+        "mistake_type",
+      ];
+
+      for (const column of requiredColumns) {
+        if (!columns.has(column)) {
+          throw new Error(
+            `The public.mistakes table is missing '${column}'.`
+          );
+        }
       }
 
       const descriptionExpression = columns.has("description")
@@ -251,107 +260,138 @@ const NotificationModel = {
           ? "COALESCE(m.group_name, 'QC Team')"
           : "'QC Team'";
 
-      /*
-       * Normalize type names for matching:
-       *   "icd-124 incorrect or not added" -> "icd-124"
-       *   "icd-124 not added"              -> "icd-124"
-       *   "icd-124 incorrect"              -> "icd-124"
-       *
-       * Only update a row when exactly one source mistake matches the
-       * same claim, employee, and normalized type. This avoids choosing
-       * an arbitrary description if multiple conditions match.
-       */
-      const sourceRows = `
-        SELECT
-          m.claim_id::text AS source_claim_id,
-          m.employee_name AS source_employee_name,
-          m.mistake_type AS source_mistake_type,
-          ${descriptionExpression} AS source_description,
-          ${screenshotExpression} AS source_screenshot_url,
-          ${dateExpression} AS source_created_date,
-          ${groupExpression} AS source_teams_group,
-          LOWER(TRIM(m.employee_name)) AS employee_key,
-          LOWER(TRIM(m.mistake_type)) AS type_key,
-          REGEXP_REPLACE(
-            LOWER(TRIM(m.mistake_type)),
-            '[[:space:]]+(incorrect[[:space:]]+or[[:space:]]+not[[:space:]]+added|not[[:space:]]+added[[:space:]]+or[[:space:]]+incorrect|incorrect|not[[:space:]]+added)$',
-            '',
-            'i'
-          ) AS base_type_key,
-          COUNT(*) OVER (
-            PARTITION BY
-              m.claim_id::text,
-              LOWER(TRIM(m.employee_name)),
-              REGEXP_REPLACE(
-                LOWER(TRIM(m.mistake_type)),
-                '[[:space:]]+(incorrect[[:space:]]+or[[:space:]]+not[[:space:]]+added|not[[:space:]]+added[[:space:]]+or[[:space:]]+incorrect|incorrect|not[[:space:]]+added)$',
-                '',
-                'i'
-              )
-          ) AS matching_source_count
-        FROM mistakes AS m
-        WHERE m.claim_id IS NOT NULL
-          AND m.employee_name IS NOT NULL
-          AND m.mistake_type IS NOT NULL
-      `;
-
-      // Update existing notification type and description to match the
-      // main Dashboard. Never reset status, sent_at, or error_message here.
-      const updateResult = await client.query(`
-        WITH source_rows AS (
-          ${sourceRows}
-        ),
-        matched_rows AS (
-          SELECT
-            tn.id AS notification_id,
-            src.source_mistake_type,
-            src.source_description,
-            src.source_screenshot_url
-          FROM teams_notifications AS tn
-          JOIN source_rows AS src
-            ON tn.claim_id::text = src.source_claim_id
-           AND LOWER(TRIM(tn.employee_name)) = src.employee_key
-          WHERE
-            (
-              LOWER(TRIM(tn.mistake_type)) = src.type_key
-              OR
-              (
-                src.matching_source_count = 1
-                AND REGEXP_REPLACE(
-                  LOWER(TRIM(tn.mistake_type)),
-                  '[[:space:]]+(incorrect[[:space:]]+or[[:space:]]+not[[:space:]]+added|not[[:space:]]+added[[:space:]]+or[[:space:]]+incorrect)$',
-                  '',
-                  'i'
-                ) = src.base_type_key
-              )
+      // Use condition_status to split old combined type names.
+      // If the condition is missing, retain the original name rather
+      // than guessing whether it should be Missing or Incorrect.
+      const typeExpression = columns.has("condition_status")
+        ? `
+          CASE
+            WHEN LOWER(TRIM(COALESCE(m.condition_status, '')))
+                   IN ('missing', 'not added', 'not added / missing')
+              AND LOWER(TRIM(m.mistake_type))
+                   ~ '(incorrect[[:space:]]+or[[:space:]]+not[[:space:]]+added|not[[:space:]]+added[[:space:]]+or[[:space:]]+incorrect)$'
+            THEN REGEXP_REPLACE(
+              TRIM(m.mistake_type),
+              '[[:space:]]+(incorrect[[:space:]]+or[[:space:]]+not[[:space:]]+added|not[[:space:]]+added[[:space:]]+or[[:space:]]+incorrect)$',
+              ' NOT ADDED',
+              'i'
             )
+
+            WHEN LOWER(TRIM(COALESCE(m.condition_status, '')))
+                   = 'incorrect'
+              AND LOWER(TRIM(m.mistake_type))
+                   ~ '(incorrect[[:space:]]+or[[:space:]]+not[[:space:]]+added|not[[:space:]]+added[[:space:]]+or[[:space:]]+incorrect)$'
+            THEN REGEXP_REPLACE(
+              TRIM(m.mistake_type),
+              '[[:space:]]+(incorrect[[:space:]]+or[[:space:]]+not[[:space:]]+added|not[[:space:]]+added[[:space:]]+or[[:space:]]+incorrect)$',
+              ' INCORRECT',
+              'i'
+            )
+
+            ELSE TRIM(m.mistake_type)
+          END
+        `
+        : "TRIM(m.mistake_type)";
+
+      /*
+       * First, update exact claim/employee/type matches.
+       * Do not modify status, sent_at, or error_message.
+       */
+      const exactUpdateResult = await client.query(`
+        WITH source_rows AS (
+          SELECT
+            m.claim_id::text AS claim_id,
+            m.employee_name,
+            ${typeExpression} AS display_type,
+            ${descriptionExpression} AS source_description,
+            ${screenshotExpression} AS source_screenshot
+          FROM public.mistakes m
         )
-        UPDATE teams_notifications AS tn
+        UPDATE teams_notifications tn
         SET
-          mistake_type = matched.source_mistake_type,
-          description = matched.source_description,
+          mistake_type = s.display_type,
+          description = s.source_description,
           screenshot_url = COALESCE(
-            matched.source_screenshot_url,
+            s.source_screenshot,
             tn.screenshot_url
           )
-        FROM matched_rows AS matched
-        WHERE tn.id = matched.notification_id
+        FROM source_rows s
+        WHERE tn.claim_id::text = s.claim_id
+          AND LOWER(TRIM(tn.employee_name)) =
+              LOWER(TRIM(s.employee_name))
+          AND LOWER(TRIM(tn.mistake_type)) =
+              LOWER(TRIM(s.display_type))
           AND (
-            COALESCE(tn.mistake_type, '') <>
-              COALESCE(matched.source_mistake_type, '')
-            OR COALESCE(tn.description, '') <>
-              COALESCE(matched.source_description, '')
+            COALESCE(tn.description, '') <>
+              COALESCE(s.source_description, '')
             OR (
-              matched.source_screenshot_url IS NOT NULL
+              s.source_screenshot IS NOT NULL
               AND COALESCE(tn.screenshot_url, '') <>
-                  COALESCE(matched.source_screenshot_url, '')
+                  COALESCE(s.source_screenshot, '')
             )
           )
       `);
 
-      // Insert source mistakes that have no matching notification.
-      // Matching is by claim, employee, and the exact condition-specific
-      // mistake type so Missing and Incorrect remain separate records.
+      /*
+       * Migrate a legacy combined name only when exactly one source
+       * row matches its claim, employee, and base mistake name.
+       *
+       * If both Missing and Incorrect exist for the same claim and
+       * employee, the old combined notification is ambiguous. It is
+       * intentionally not assigned to either condition.
+       */
+      const legacyUpdateResult = await client.query(`
+        WITH source_rows AS (
+          SELECT
+            m.claim_id::text AS claim_id,
+            m.employee_name,
+            ${typeExpression} AS display_type,
+            ${descriptionExpression} AS source_description,
+            ${screenshotExpression} AS source_screenshot,
+            REGEXP_REPLACE(
+              LOWER(TRIM(m.mistake_type)),
+              '[[:space:]]+(incorrect[[:space:]]+or[[:space:]]+not[[:space:]]+added|not[[:space:]]+added[[:space:]]+or[[:space:]]+incorrect|incorrect|not[[:space:]]+added)$',
+              '',
+              'i'
+            ) AS base_type,
+            COUNT(*) OVER (
+              PARTITION BY
+                m.claim_id::text,
+                LOWER(TRIM(m.employee_name)),
+                REGEXP_REPLACE(
+                  LOWER(TRIM(m.mistake_type)),
+                  '[[:space:]]+(incorrect[[:space:]]+or[[:space:]]+not[[:space:]]+added|not[[:space:]]+added[[:space:]]+or[[:space:]]+incorrect|incorrect|not[[:space:]]+added)$',
+                  '',
+                  'i'
+                )
+            ) AS source_count
+          FROM public.mistakes m
+        )
+        UPDATE teams_notifications tn
+        SET
+          mistake_type = s.display_type,
+          description = s.source_description,
+          screenshot_url = COALESCE(
+            s.source_screenshot,
+            tn.screenshot_url
+          )
+        FROM source_rows s
+        WHERE tn.claim_id::text = s.claim_id
+          AND LOWER(TRIM(tn.employee_name)) =
+              LOWER(TRIM(s.employee_name))
+          AND s.source_count = 1
+          AND LOWER(TRIM(tn.mistake_type)) ~
+              '(incorrect[[:space:]]+or[[:space:]]+not[[:space:]]+added|not[[:space:]]+added[[:space:]]+or[[:space:]]+incorrect)$'
+          AND REGEXP_REPLACE(
+                LOWER(TRIM(tn.mistake_type)),
+                '[[:space:]]+(incorrect[[:space:]]+or[[:space:]]+not[[:space:]]+added|not[[:space:]]+added[[:space:]]+or[[:space:]]+incorrect)$',
+                '',
+                'i'
+              ) = s.base_type
+      `);
+
+      // Insert source rows whose condition-specific type is not present.
+      // This does not delete or overwrite existing notification status.
       const insertResult = await client.query(`
         INSERT INTO teams_notifications (
           claim_id,
@@ -366,55 +406,71 @@ const NotificationModel = {
         SELECT
           m.claim_id,
           m.employee_name,
-          m.mistake_type,
+          ${typeExpression},
           ${descriptionExpression},
           ${screenshotExpression},
           ${dateExpression},
           ${groupExpression},
           'Pending'
-        FROM mistakes AS m
+        FROM public.mistakes m
         WHERE NOT EXISTS (
           SELECT 1
-          FROM teams_notifications AS tn
+          FROM teams_notifications tn
           WHERE tn.claim_id::text = m.claim_id::text
             AND LOWER(TRIM(tn.employee_name)) =
                 LOWER(TRIM(m.employee_name))
             AND LOWER(TRIM(tn.mistake_type)) =
-                LOWER(TRIM(m.mistake_type))
+                LOWER(TRIM(${typeExpression}))
         )
       `);
 
       await client.query("COMMIT");
 
-      const updated = updateResult.rowCount || 0;
+      const updated =
+        (exactUpdateResult.rowCount || 0) +
+        (legacyUpdateResult.rowCount || 0);
+
       const inserted = insertResult.rowCount || 0;
+
+      console.log("[NotificationModel] Sync completed:", {
+        updated,
+        inserted,
+      });
 
       return {
         changes: updated + inserted,
         updated,
         inserted,
       };
-    } catch (err) {
+    } catch (error) {
       try {
         await client.query("ROLLBACK");
       } catch (rollbackError) {
         console.error(
-          "[NotificationModel] Rollback error:",
+          "[NotificationModel] Rollback failed:",
           rollbackError.message
         );
       }
 
-      console.error("[NotificationModel] Sync error:", err.message);
-      throw err;
+      console.error(
+        "[NotificationModel] Synchronization failed:",
+        error.message
+      );
+
+      throw error;
     } finally {
       client.release();
     }
   },
 
-  // Delete a notification row when explicitly requested.
+  // Delete a notification only when explicitly requested.
   deleteNotification: async (id) => {
     const result = await db.query(
-      "DELETE FROM teams_notifications WHERE id = $1 RETURNING id",
+      `
+        DELETE FROM teams_notifications
+        WHERE id = $1
+        RETURNING id
+      `,
       [id]
     );
 
