@@ -1,3 +1,4 @@
+
 require("dotenv").config();
 
 const express = require("express");
@@ -11,6 +12,7 @@ const cron = require("node-cron");
 const authRoutes = require("./routes/authRoutes");
 const mistakeRoutes = require("./routes/mistakeRoutes");
 const teamsRoutes = require("./routes/teamsRoutes");
+const creatorRoutes = require("./routes/creatorRoutes");
 
 // ==========================================
 // CONTROLLERS
@@ -32,42 +34,37 @@ const app = express();
 // ==========================================
 // MIDDLEWARE
 // ==========================================
-
-// CORS configuration (including explicit Vercel production URL fallback)
 const allowedOrigins = [
   process.env.CLIENT_URL,
   "http://localhost:3000",
   "http://localhost:5173",
-  "https://iail-prod.vercel.app", // Explicitly added to fix CORS block
-].filter(Boolean);
+  "https://iail-prod.vercel.app",
+]
+  .filter(Boolean)
+  .map((origin) => origin.replace(/\/$/, ""));
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests without an origin (like Postman or mobile apps)
+      // Allow requests without an Origin header.
       if (!origin) {
         return callback(null, true);
       }
 
-      if (allowedOrigins.includes(origin)) {
+      if (allowedOrigins.includes(origin.replace(/\/$/, ""))) {
         return callback(null, true);
       }
 
-      return callback(
-        new Error("Not allowed by CORS")
-      );
+      return callback(new Error("Not allowed by CORS"));
     },
     credentials: true,
   })
 );
 
-// Parse JSON requests
 app.use(express.json({ limit: "10mb" }));
-
-// Parse URL-encoded requests
 app.use(express.urlencoded({ extended: true }));
 
-// Serve uploaded files statically (if using local storage fallback)
+// Serve uploaded files if local storage is used.
 app.use(
   "/uploads",
   express.static(path.join(__dirname, "uploads"))
@@ -80,14 +77,17 @@ app.use(
 // Authentication
 app.use("/api/auth", authRoutes);
 
-// QC Mistake Management
+// QC mistake management
 app.use("/api/mistakes", mistakeRoutes);
 
-// MS Teams Notifications
+// MS Teams notifications
 app.use("/api/teams", teamsRoutes);
 
+// Creator Dashboard: mistake types and employees
+app.use("/api/creator", creatorRoutes);
+
 // ==========================================
-// HEALTH CHECK ROUTE
+// HEALTH CHECK
 // ==========================================
 app.get("/", (req, res) => {
   res.status(200).json({
@@ -99,26 +99,25 @@ app.get("/", (req, res) => {
 
 // ==========================================
 // CRON JOB
-// AUTOMATED MS TEAMS REPORT AT 6:00 PM IST
+// DAILY MS TEAMS REPORT AT 6:00 PM IST
 // ==========================================
 cron.schedule(
   "0 18 * * *",
   async () => {
     console.log(
-      "⏰ [Cron Job] Triggering daily MS Teams report at 6:00 PM IST..."
+      "[Cron Job] Triggering daily MS Teams report at 6:00 PM IST..."
     );
 
     try {
-      await generateAndSendTeamsReport({ teamsGroup: "QC Team" });
+      await generateAndSendTeamsReport({
+        teamsGroup: "QC Team",
+      });
 
       console.log(
-        "✅ [Cron Job] Daily report sent successfully to MS Teams!"
+        "[Cron Job] Daily report sent successfully."
       );
     } catch (error) {
-      console.error(
-        "[Cron Job Error]:",
-        error.message
-      );
+      console.error("[Cron Job Error]:", error.message);
     }
   },
   {
@@ -139,6 +138,14 @@ app.use((err, req, res, next) => {
         : undefined,
   });
 
+  // Handle rejected CORS requests explicitly.
+  if (err.message === "Not allowed by CORS") {
+    return res.status(403).json({
+      success: false,
+      message: "Origin not allowed by CORS.",
+    });
+  }
+
   res.status(err.status || 500).json({
     success: false,
     message:
@@ -157,35 +164,45 @@ const startServer = async () => {
   try {
     console.log("[Server] Starting initialization...");
 
-    // 1. Initialize database tables
+    // 1. Initialize Teams notification tables.
     await NotificationModel.initTables();
-    console.log("[Database] Schema tables initialized successfully.");
 
-    // 2. Synchronize dashboard records with Teams notifications
-    const syncResult = await NotificationModel.syncDashboardData();
+    console.log(
+      "[Database] Notification tables initialized."
+    );
+
+    // 2. Synchronize dashboard records with Teams notifications.
+    const syncResult =
+      await NotificationModel.syncDashboardData();
 
     if (syncResult && syncResult.changes > 0) {
       console.log(
-        `[Database Sync] Successfully synced ${syncResult.changes} dashboard record(s) to Teams Notifications.`
+        `[Database Sync] Synced ${syncResult.changes} record(s).`
       );
     } else {
-      console.log("[Database Sync] No new records to sync.");
+      console.log(
+        "[Database Sync] No new records to sync."
+      );
     }
 
-    // 3. Start Express server
+    // 3. Start the API server.
     app.listen(PORT, () => {
       console.log("------------------------------------");
-      console.log("🚀 IAIL Backend Started Successfully");
-      console.log(`🌐 Port: ${PORT}`);
-      console.log("🔐 Authentication API: /api/auth");
-      console.log("📋 Mistake API: /api/mistakes");
-      console.log("📢 Teams API: /api/teams");
-      console.log("⏰ Daily Teams Report: 6:00 PM IST");
+      console.log("IAIL Backend Started Successfully");
+      console.log(`Port: ${PORT}`);
+      console.log("Authentication API: /api/auth");
+      console.log("Mistake API: /api/mistakes");
+      console.log("Teams API: /api/teams");
+      console.log("Creator API: /api/creator");
+      console.log("Daily Teams Report: 6:00 PM IST");
       console.log("------------------------------------");
     });
-
   } catch (error) {
-    console.error("[Server Startup Error]:", error.message);
+    console.error(
+      "[Server Startup Error]:",
+      error.message
+    );
+
     process.exit(1);
   }
 };
@@ -202,5 +219,7 @@ process.on("uncaughtException", (error) => {
   process.exit(1);
 });
 
-// Start the server
+// Start the server.
 startServer();
+
+module.exports = app;

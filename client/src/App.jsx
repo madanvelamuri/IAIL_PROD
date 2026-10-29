@@ -1,36 +1,57 @@
+
 import React from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
 
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import AddMistake from "./pages/AddMistake";
 import Register from "./pages/Register";
 import TeamsNotifications from "./pages/TeamsNotifications";
+import CreatorDashboard from "./pages/CreatorDashboard";
 import ProLayout from "./components/ProLayout";
 
-// Wrapper for Protected Routes (requires active JWT token)
+// ==========================================
+// PROTECTED ROUTES
+// Requires an active login token
+// ==========================================
 const ProtectedRoute = ({ children }) => {
   const token = localStorage.getItem("token");
+
   if (!token) {
     return <Navigate to="/" replace />;
   }
+
   return <ProLayout>{children}</ProLayout>;
 };
 
-// Wrapper for Public Routes (redirects to dashboard if already logged in)
+// ==========================================
+// PUBLIC ROUTES
+// Redirect logged-in users to Dashboard
+// ==========================================
 const PublicRoute = ({ children }) => {
   const token = localStorage.getItem("token");
+
   if (token) {
     return <Navigate to="/dashboard" replace />;
   }
+
   return children;
 };
 
+// ==========================================
+// APPLICATION ROUTES
+// ==========================================
 function App() {
   return (
     <BrowserRouter>
       <Routes>
         {/* PUBLIC ROUTES */}
+
         <Route
           path="/"
           element={
@@ -39,6 +60,7 @@ function App() {
             </PublicRoute>
           }
         />
+
         <Route
           path="/register"
           element={
@@ -49,6 +71,7 @@ function App() {
         />
 
         {/* PROTECTED ROUTES */}
+
         <Route
           path="/dashboard"
           element={
@@ -57,6 +80,7 @@ function App() {
             </ProtectedRoute>
           }
         />
+
         <Route
           path="/add-mistake"
           element={
@@ -65,6 +89,7 @@ function App() {
             </ProtectedRoute>
           }
         />
+
         <Route
           path="/teams-notifications"
           element={
@@ -74,12 +99,26 @@ function App() {
           }
         />
 
-        {/* CATCH ALL ROUTE */}
+        {/* CREATOR DASHBOARD */}
+        <Route
+          path="/creator"
+          element={
+            <ProtectedRoute>
+              <CreatorDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* CATCH-ALL ROUTE */}
         <Route
           path="*"
           element={
             <Navigate
-              to={localStorage.getItem("token") ? "/dashboard" : "/"}
+              to={
+                localStorage.getItem("token")
+                  ? "/dashboard"
+                  : "/"
+              }
               replace
             />
           }
