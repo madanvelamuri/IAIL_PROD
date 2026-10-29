@@ -15,7 +15,7 @@ const formatDate = (dateStr) => {
   return `${day}-${month}-${date.getFullYear()}`;
 };
 
-// Build a public Supabase screenshot URL from a stored path or URL.
+// Convert a stored screenshot path to a public Supabase URL.
 const buildSupabaseScreenshotUrl = (rawUrl) => {
   if (
     !rawUrl ||
@@ -35,7 +35,7 @@ const buildSupabaseScreenshotUrl = (rawUrl) => {
     "https://rzfmcziqenovgvhxgbau.supabase.co"
   ).replace(/\/+$/, "");
 
-  let cleanedPath = value
+  const cleanedPath = value
     .replace(/^[\\/]+/, "")
     .replace(/^screenshots[\\/]+/i, "")
     .replace(/^public[\\/]+/i, "");
@@ -48,7 +48,7 @@ const buildSupabaseScreenshotUrl = (rawUrl) => {
   return `${baseUrl}/storage/v1/object/public/screenshots/${encodedPath}`;
 };
 
-// Generate a report and send it to a configured Teams webhook.
+// Generate a report and send it to the configured Teams webhook.
 const generateAndSendTeamsReport = async ({
   teamsGroup = "QC Team",
   fromDate,
@@ -82,7 +82,10 @@ const generateAndSendTeamsReport = async ({
       text: `**Mistake Tracking Report (${teamsGroup})**\n\nNo mistake records found.`,
     });
 
-    return { success: true, message: "No records to report." };
+    return {
+      success: true,
+      message: "No records to report.",
+    };
   }
 
   const repeatedMistakeMap = {};
@@ -160,6 +163,7 @@ const generateAndSendTeamsReport = async ({
 
 exports.generateAndSendTeamsReport = generateAndSendTeamsReport;
 
+// Send a report to Teams.
 exports.sendReportNotification = async (req, res) => {
   try {
     const { teamsGroup, fromDate, toDate, employee, search } = req.body;
@@ -186,6 +190,7 @@ exports.sendReportNotification = async (req, res) => {
   }
 };
 
+// Get Teams notification rows with filtering and pagination.
 exports.getNotifications = async (req, res) => {
   try {
     const {
@@ -232,6 +237,7 @@ exports.getNotifications = async (req, res) => {
   }
 };
 
+// Send one notification to Teams.
 exports.sendNotification = async (req, res) => {
   const {
     notificationId,
@@ -323,6 +329,7 @@ exports.sendNotification = async (req, res) => {
   }
 };
 
+// Send a test message to a supplied webhook.
 exports.sendTestNotification = async (req, res) => {
   const { webhookUrl } = req.body;
 
@@ -361,6 +368,7 @@ exports.sendTestNotification = async (req, res) => {
   }
 };
 
+// Get saved Teams webhook settings.
 exports.getSettings = async (req, res) => {
   try {
     const rows = await NotificationModel.getAllSettings();
@@ -374,6 +382,7 @@ exports.getSettings = async (req, res) => {
   }
 };
 
+// Save Teams webhook settings.
 exports.saveSettings = async (req, res) => {
   const { groupName, webhookUrl } = req.body;
 
@@ -402,7 +411,7 @@ exports.saveSettings = async (req, res) => {
   }
 };
 
-// Sync and return accurate counts for updated and inserted records.
+// Synchronize source mistakes and return update/insert counts.
 exports.syncDashboard = async (req, res) => {
   try {
     const result = await NotificationModel.syncDashboardData();
@@ -410,9 +419,9 @@ exports.syncDashboard = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Teams notification synchronization completed.",
-      changes: result.changes || 0,
-      updated: result.updated || 0,
-      inserted: result.inserted || 0,
+      changes: result?.changes || 0,
+      updated: result?.updated || 0,
+      inserted: result?.inserted || 0,
     });
   } catch (error) {
     console.error("[Teams Sync Error]:", error.message);
@@ -424,6 +433,7 @@ exports.syncDashboard = async (req, res) => {
   }
 };
 
+// Delete a notification when explicitly requested.
 exports.deleteNotification = async (req, res) => {
   try {
     const { id } = req.params;

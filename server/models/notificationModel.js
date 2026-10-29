@@ -108,7 +108,10 @@ const NotificationModel = {
       params
     );
 
-    const total = Number.parseInt(countResult.rows[0]?.total || "0", 10);
+    const total = Number.parseInt(
+      countResult.rows[0]?.total || "0",
+      10
+    );
 
     const queryParams = [...params, limit, offset];
 
@@ -148,17 +151,19 @@ const NotificationModel = {
       throw new Error("Invalid notification status.");
     }
 
-    const sentAt = status === "Sent" ? new Date() : null;
-
+    // Preserve sent_at for already-sent notifications unless status changes.
     return db.query(
       `
         UPDATE teams_notifications
         SET status = $1,
-            sent_at = $2,
+            sent_at = CASE
+              WHEN $1 = 'Sent' THEN COALESCE(sent_at, CURRENT_TIMESTAMP)
+              ELSE NULL
+            END,
             error_message = $3
-        WHERE id = $4
+        WHERE id = $2
       `,
-      [status, sentAt, errorMessage, id]
+      [status, id, errorMessage]
     );
   },
 
@@ -191,8 +196,8 @@ const NotificationModel = {
     return result.rows[0];
   },
 
-  // Synchronize mistakes into Teams notifications.
-  // Existing records are updated without resetting status or sent_at.
+  // Synchronize the source mistakes table with Teams notifications.
+  // Existing notification status, sent_at, and error_message are preserved.
   syncDashboardData: async () => {
     const client = await db.connect();
 
@@ -216,7 +221,7 @@ const NotificationModel = {
         !columns.has("mistake_type")
       ) {
         throw new Error(
-          "The mistakes table is missing a required synchronization column."
+          "The public.mistakes table is missing a required column."
         );
       }
 
@@ -246,35 +251,107 @@ const NotificationModel = {
           ? "COALESCE(m.group_name, 'QC Team')"
           : "'QC Team'";
 
-      // Update descriptions for existing notification rows.
-      // Status, sent_at, and error_message are intentionally preserved.
+      /*
+       * Normalize type names for matching:
+       *   "icd-124 incorrect or not added" -> "icd-124"
+       *   "icd-124 not added"              -> "icd-124"
+       *   "icd-124 incorrect"              -> "icd-124"
+       *
+       * Only update a row when exactly one source mistake matches the
+       * same claim, employee, and normalized type. This avoids choosing
+       * an arbitrary description if multiple conditions match.
+       */
+      const sourceRows = `
+        SELECT
+          m.claim_id::text AS source_claim_id,
+          m.employee_name AS source_employee_name,
+          m.mistake_type AS source_mistake_type,
+          ${descriptionExpression} AS source_description,
+          ${screenshotExpression} AS source_screenshot_url,
+          ${dateExpression} AS source_created_date,
+          ${groupExpression} AS source_teams_group,
+          LOWER(TRIM(m.employee_name)) AS employee_key,
+          LOWER(TRIM(m.mistake_type)) AS type_key,
+          REGEXP_REPLACE(
+            LOWER(TRIM(m.mistake_type)),
+            '[[:space:]]+(incorrect[[:space:]]+or[[:space:]]+not[[:space:]]+added|not[[:space:]]+added[[:space:]]+or[[:space:]]+incorrect|incorrect|not[[:space:]]+added)$',
+            '',
+            'i'
+          ) AS base_type_key,
+          COUNT(*) OVER (
+            PARTITION BY
+              m.claim_id::text,
+              LOWER(TRIM(m.employee_name)),
+              REGEXP_REPLACE(
+                LOWER(TRIM(m.mistake_type)),
+                '[[:space:]]+(incorrect[[:space:]]+or[[:space:]]+not[[:space:]]+added|not[[:space:]]+added[[:space:]]+or[[:space:]]+incorrect|incorrect|not[[:space:]]+added)$',
+                '',
+                'i'
+              )
+          ) AS matching_source_count
+        FROM mistakes AS m
+        WHERE m.claim_id IS NOT NULL
+          AND m.employee_name IS NOT NULL
+          AND m.mistake_type IS NOT NULL
+      `;
+
+      // Update existing notification type and description to match the
+      // main Dashboard. Never reset status, sent_at, or error_message here.
       const updateResult = await client.query(`
+        WITH source_rows AS (
+          ${sourceRows}
+        ),
+        matched_rows AS (
+          SELECT
+            tn.id AS notification_id,
+            src.source_mistake_type,
+            src.source_description,
+            src.source_screenshot_url
+          FROM teams_notifications AS tn
+          JOIN source_rows AS src
+            ON tn.claim_id::text = src.source_claim_id
+           AND LOWER(TRIM(tn.employee_name)) = src.employee_key
+          WHERE
+            (
+              LOWER(TRIM(tn.mistake_type)) = src.type_key
+              OR
+              (
+                src.matching_source_count = 1
+                AND REGEXP_REPLACE(
+                  LOWER(TRIM(tn.mistake_type)),
+                  '[[:space:]]+(incorrect[[:space:]]+or[[:space:]]+not[[:space:]]+added|not[[:space:]]+added[[:space:]]+or[[:space:]]+incorrect)$',
+                  '',
+                  'i'
+                ) = src.base_type_key
+              )
+            )
+        )
         UPDATE teams_notifications AS tn
         SET
-          description = ${descriptionExpression},
+          mistake_type = matched.source_mistake_type,
+          description = matched.source_description,
           screenshot_url = COALESCE(
-            ${screenshotExpression},
+            matched.source_screenshot_url,
             tn.screenshot_url
           )
-        FROM mistakes AS m
-        WHERE tn.claim_id::text = m.claim_id::text
-          AND LOWER(TRIM(tn.employee_name)) =
-              LOWER(TRIM(m.employee_name))
-          AND LOWER(TRIM(tn.mistake_type)) =
-              LOWER(TRIM(m.mistake_type))
+        FROM matched_rows AS matched
+        WHERE tn.id = matched.notification_id
           AND (
-            COALESCE(tn.description, '') <>
-              COALESCE(${descriptionExpression}, '')
+            COALESCE(tn.mistake_type, '') <>
+              COALESCE(matched.source_mistake_type, '')
+            OR COALESCE(tn.description, '') <>
+              COALESCE(matched.source_description, '')
             OR (
-              ${screenshotExpression} IS NOT NULL
+              matched.source_screenshot_url IS NOT NULL
               AND COALESCE(tn.screenshot_url, '') <>
-                  COALESCE(${screenshotExpression}, '')
+                  COALESCE(matched.source_screenshot_url, '')
             )
           )
       `);
 
-      // Insert source mistakes that do not yet have a matching
-      // notification row. Existing rows are not duplicated.
+      // Insert source mistakes that have no matching notification.
+      // Matching is by claim, employee, and the exact condition-specific
+      // mistake type so Missing and Incorrect remain separate records.
       const insertResult = await client.query(`
         INSERT INTO teams_notifications (
           claim_id,
@@ -318,7 +395,15 @@ const NotificationModel = {
         inserted,
       };
     } catch (err) {
-      await client.query("ROLLBACK");
+      try {
+        await client.query("ROLLBACK");
+      } catch (rollbackError) {
+        console.error(
+          "[NotificationModel] Rollback error:",
+          rollbackError.message
+        );
+      }
+
       console.error("[NotificationModel] Sync error:", err.message);
       throw err;
     } finally {
@@ -326,7 +411,7 @@ const NotificationModel = {
     }
   },
 
-  // Delete a notification row when explicitly requested by the user.
+  // Delete a notification row when explicitly requested.
   deleteNotification: async (id) => {
     const result = await db.query(
       "DELETE FROM teams_notifications WHERE id = $1 RETURNING id",
