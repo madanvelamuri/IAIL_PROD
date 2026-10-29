@@ -41,17 +41,19 @@ const allowedOrigins = [
   "https://iail-prod.vercel.app",
 ]
   .filter(Boolean)
-  .map((origin) => origin.replace(/\/$/, ""));
+  .map((origin) => origin.trim().replace(/\/+$/, ""));
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests without an Origin header.
+      // Allow requests without an Origin header, such as server-to-server calls.
       if (!origin) {
         return callback(null, true);
       }
 
-      if (allowedOrigins.includes(origin.replace(/\/$/, ""))) {
+      const normalizedOrigin = origin.replace(/\/+$/, "");
+
+      if (allowedOrigins.includes(normalizedOrigin)) {
         return callback(null, true);
       }
 
@@ -74,16 +76,11 @@ app.use(
 // API ROUTES
 // ==========================================
 
-// Authentication
 app.use("/api/auth", authRoutes);
-
-// QC mistake management
 app.use("/api/mistakes", mistakeRoutes);
-
-// MS Teams notifications
 app.use("/api/teams", teamsRoutes);
 
-// Creator Dashboard: mistake types and employees
+// One Creator router for mistake types, employees, and user accounts.
 app.use("/api/creator", creatorRoutes);
 
 // ==========================================
@@ -113,9 +110,7 @@ cron.schedule(
         teamsGroup: "QC Team",
       });
 
-      console.log(
-        "[Cron Job] Daily report sent successfully."
-      );
+      console.log("[Cron Job] Daily report sent successfully.");
     } catch (error) {
       console.error("[Cron Job Error]:", error.message);
     }
@@ -138,7 +133,6 @@ app.use((err, req, res, next) => {
         : undefined,
   });
 
-  // Handle rejected CORS requests explicitly.
   if (err.message === "Not allowed by CORS") {
     return res.status(403).json({
       success: false,
@@ -146,7 +140,7 @@ app.use((err, req, res, next) => {
     });
   }
 
-  res.status(err.status || 500).json({
+  return res.status(err.status || 500).json({
     success: false,
     message:
       process.env.NODE_ENV === "development"
@@ -164,28 +158,18 @@ const startServer = async () => {
   try {
     console.log("[Server] Starting initialization...");
 
-    // 1. Initialize Teams notification tables.
     await NotificationModel.initTables();
+    console.log("[Database] Notification tables initialized.");
 
-    console.log(
-      "[Database] Notification tables initialized."
-    );
-
-    // 2. Synchronize dashboard records with Teams notifications.
     const syncResult =
       await NotificationModel.syncDashboardData();
 
-    if (syncResult && syncResult.changes > 0) {
-      console.log(
-        `[Database Sync] Synced ${syncResult.changes} record(s).`
-      );
-    } else {
-      console.log(
-        "[Database Sync] No new records to sync."
-      );
-    }
+    console.log("[Database Sync]", {
+      changes: syncResult?.changes || 0,
+      updated: syncResult?.updated || 0,
+      inserted: syncResult?.inserted || 0,
+    });
 
-    // 3. Start the API server.
     app.listen(PORT, () => {
       console.log("------------------------------------");
       console.log("IAIL Backend Started Successfully");
@@ -198,11 +182,7 @@ const startServer = async () => {
       console.log("------------------------------------");
     });
   } catch (error) {
-    console.error(
-      "[Server Startup Error]:",
-      error.message
-    );
-
+    console.error("[Server Startup Error]:", error.message);
     process.exit(1);
   }
 };
@@ -219,7 +199,6 @@ process.on("uncaughtException", (error) => {
   process.exit(1);
 });
 
-// Start the server.
 startServer();
 
 module.exports = app;

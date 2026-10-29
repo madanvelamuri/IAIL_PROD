@@ -50,6 +50,11 @@ export default function CreatorDashboard() {
   const [conditions, setConditions] = useState("Missing\nIncorrect");
   const [employeeName, setEmployeeName] = useState("");
 
+  const [userName, setUserName] = useState("");
+  const [userEmail, setUserEmail] = useState("");
+  const [userPassword, setUserPassword] = useState("");
+  const [userRole, setUserRole] = useState("user");
+
   const [mistakeSearch, setMistakeSearch] = useState("");
   const [employeeSearch, setEmployeeSearch] = useState("");
 
@@ -250,6 +255,59 @@ export default function CreatorDashboard() {
       showToast(
         "error",
         err.response?.data?.message || "Unable to add employee."
+      );
+    } finally {
+      requestLock.current = false;
+      setLoading(false);
+    }
+  };
+
+  const createUser = async (event) => {
+    event.preventDefault();
+
+    if (requestLock.current) return;
+
+    const cleanName = userName.trim();
+    const cleanEmail = userEmail.trim().toLowerCase();
+    const cleanPassword = userPassword;
+
+    if (!cleanName || !cleanEmail || !cleanPassword) {
+      showToast("error", "Please complete all required account fields.");
+      return;
+    }
+
+    if (cleanPassword.length < 8 || cleanPassword.length > 72) {
+      showToast("error", "Password must contain 8 to 72 characters.");
+      return;
+    }
+
+    if (!["user", "admin"].includes(userRole)) {
+      showToast("error", "Please select a valid account role.");
+      return;
+    }
+
+    requestLock.current = true;
+    setLoading(true);
+
+    try {
+      await API.post("/creator/users", {
+        name: cleanName,
+        email: cleanEmail,
+        password: cleanPassword,
+        role: userRole,
+      });
+
+      setUserName("");
+      setUserEmail("");
+      setUserPassword("");
+      setUserRole("user");
+
+      showToast("success", "User account created successfully.");
+    } catch (err) {
+      showToast(
+        "error",
+        err.response?.data?.message ||
+          "Unable to create account. Check your administrator access and try again."
       );
     } finally {
       requestLock.current = false;
@@ -990,8 +1048,8 @@ export default function CreatorDashboard() {
 
             <h1>Creator Dashboard</h1>
             <p>
-              Manage your QC mistake categories and employee directory from
-              one organized workspace.
+              Manage QC mistake categories, employee names, and user accounts
+              from one organized workspace.
             </p>
           </div>
 
@@ -1054,6 +1112,16 @@ export default function CreatorDashboard() {
           <Icon name="users" size={18} />
           Employee Management
           <span className="creator-tab-count">{employees.length}</span>
+        </button>
+
+        <button
+          type="button"
+          className={`creator-tab ${activeTab === "users" ? "active" : ""}`}
+          aria-current={activeTab === "users" ? "page" : undefined}
+          onClick={() => setActiveTab("users")}
+        >
+          <Icon name="user" size={18} />
+          User Account Management
         </button>
       </nav>
 
@@ -1452,6 +1520,158 @@ export default function CreatorDashboard() {
                       </span>
                     </div>
                   )}
+                </div>
+              </div>
+            </section>
+          )}
+
+          {activeTab === "users" && (
+            <section key="users" className="creator-content creator-columns">
+              <div className="creator-card">
+                <div className="creator-card-head">
+                  <div>
+                    <h2 className="creator-card-title">Create User Account</h2>
+                    <p className="creator-card-subtitle">
+                      Create an account with an email address, password, and access role.
+                    </p>
+                  </div>
+                  <div className="creator-stat-icon">
+                    <Icon name="user" size={21} />
+                  </div>
+                </div>
+
+                <form onSubmit={createUser}>
+                  <div className="creator-field">
+                    <label className="creator-label" htmlFor="creator-user-name">
+                      Full name <span aria-hidden="true">*</span>
+                    </label>
+                    <input
+                      id="creator-user-name"
+                      required
+                      maxLength={100}
+                      autoComplete="name"
+                      className="creator-input"
+                      value={userName}
+                      onChange={(event) => setUserName(event.target.value)}
+                      placeholder="Enter full name"
+                    />
+                  </div>
+
+                  <div className="creator-field">
+                    <label className="creator-label" htmlFor="creator-user-email">
+                      Email address <span aria-hidden="true">*</span>
+                    </label>
+                    <input
+                      id="creator-user-email"
+                      required
+                      type="email"
+                      maxLength={255}
+                      autoComplete="email"
+                      className="creator-input"
+                      value={userEmail}
+                      onChange={(event) => setUserEmail(event.target.value)}
+                      placeholder="name@company.com"
+                    />
+                  </div>
+
+                  <div className="creator-field">
+                    <label className="creator-label" htmlFor="creator-user-password">
+                      Password <span aria-hidden="true">*</span>
+                    </label>
+                    <input
+                      id="creator-user-password"
+                      required
+                      type="password"
+                      minLength={8}
+                      maxLength={72}
+                      autoComplete="new-password"
+                      className="creator-input"
+                      value={userPassword}
+                      onChange={(event) => setUserPassword(event.target.value)}
+                      placeholder="Enter a password (8–72 characters)"
+                    />
+                    <div className="creator-help">
+                      Passwords are hashed on the server before they are stored.
+                    </div>
+                  </div>
+
+                  <div className="creator-field">
+                    <label className="creator-label" htmlFor="creator-user-role">
+                      Account role <span aria-hidden="true">*</span>
+                    </label>
+                    <select
+                      id="creator-user-role"
+                      required
+                      className="creator-input"
+                      value={userRole}
+                      onChange={(event) => setUserRole(event.target.value)}
+                    >
+                      <option value="user">User — Standard access</option>
+                      <option value="admin">Admin — Administrator</option>
+                    </select>
+                    {userRole === "admin" && (
+                      <div className="creator-help" style={{ color: "#a76512" }}>
+                        Assign administrator access only to trusted people.
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="creator-primary-btn"
+                  >
+                    {loading ? (
+                      <>
+                        <span className="creator-spinner" />
+                        Creating account...
+                      </>
+                    ) : (
+                      <>
+                        <Icon name="plus" size={17} />
+                        Create account
+                      </>
+                    )}
+                  </button>
+                </form>
+              </div>
+
+              <div className="creator-card">
+                <div className="creator-card-head">
+                  <div>
+                    <h2 className="creator-card-title">Account Security</h2>
+                    <p className="creator-card-subtitle">
+                      Important details about account creation and access.
+                    </p>
+                  </div>
+                  <div className="creator-stat-icon employee">
+                    <Icon name="check" size={21} />
+                  </div>
+                </div>
+
+                <div className="creator-description-box creator-description-general">
+                  <strong>Password protection</strong>
+                  <p>
+                    The server hashes the password with bcryptjs. The original
+                    password and password hash are not returned to the browser.
+                  </p>
+                </div>
+
+                <div className="creator-description-box creator-description-missing">
+                  <strong>Administrator access</strong>
+                  <p>
+                    Only an authorized administrator can create accounts.
+                    The server must enforce role checks; hiding controls in the
+                    frontend alone is not security.
+                  </p>
+                </div>
+
+                <div className="creator-description-box creator-description-incorrect">
+                  <strong>Duplicate email addresses</strong>
+                  <p>
+                    The backend should reject email addresses already registered
+                    in the users table.
+                  </p>
                 </div>
               </div>
             </section>

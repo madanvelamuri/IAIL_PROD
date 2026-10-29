@@ -1,5 +1,6 @@
 
 const express = require("express");
+const bcrypt = require("bcryptjs");
 const db = require("../config/db");
 const auth = require("../middleware/auth");
 
@@ -8,7 +9,7 @@ const router = express.Router();
 // All Creator API endpoints require a valid login.
 router.use(auth);
 
-// Restrict write operations to configured administrators.
+// Restrict administrative operations to configured administrator emails.
 function requireCreator(req, res, next) {
   const allowedEmails = (process.env.ADMIN_EMAILS || "")
     .split(",")
@@ -34,25 +35,30 @@ function requireCreator(req, res, next) {
   next();
 }
 
-// GET MISTAKE TYPES — available to authenticated users
+// ======================================================
+// MISTAKE TYPE MANAGEMENT
+// ======================================================
+
+// GET mistake types — authenticated users.
 router.get("/mistake-types", async (req, res) => {
   try {
-    const result = await db.query(
-      `SELECT id, name, description, conditions, created_at
-       FROM creator_mistake_types
-       ORDER BY name ASC`
-    );
+    const result = await db.query(`
+      SELECT id, name, description, conditions, created_at
+      FROM creator_mistake_types
+      ORDER BY name ASC
+    `);
 
-    res.json(result.rows);
+    return res.json(result.rows);
   } catch (error) {
     console.error("Load mistake types:", error.message);
-    res.status(500).json({
+
+    return res.status(500).json({
       message: "Unable to load mistake types.",
     });
   }
 });
 
-// ADD MISTAKE TYPE — admin only
+// ADD mistake type — admin only.
 router.post("/mistake-types", requireCreator, async (req, res) => {
   const name = String(req.body?.name || "").trim();
   const description = String(req.body?.description || "").trim();
@@ -93,7 +99,7 @@ router.post("/mistake-types", requireCreator, async (req, res) => {
       [name, description, conditions]
     );
 
-    res.status(201).json(result.rows[0]);
+    return res.status(201).json(result.rows[0]);
   } catch (error) {
     if (error.code === "23505") {
       return res.status(409).json({
@@ -102,31 +108,37 @@ router.post("/mistake-types", requireCreator, async (req, res) => {
     }
 
     console.error("Create mistake type:", error.message);
-    res.status(500).json({
+
+    return res.status(500).json({
       message: "Unable to create mistake type.",
     });
   }
 });
 
-// GET EMPLOYEES — available to authenticated users
+// ======================================================
+// EMPLOYEE MANAGEMENT
+// ======================================================
+
+// GET employees — authenticated users.
 router.get("/employees", async (req, res) => {
   try {
-    const result = await db.query(
-      `SELECT id, name, created_at
-       FROM creator_employees
-       ORDER BY name ASC`
-    );
+    const result = await db.query(`
+      SELECT id, name, created_at
+      FROM creator_employees
+      ORDER BY name ASC
+    `);
 
-    res.json(result.rows);
+    return res.json(result.rows);
   } catch (error) {
     console.error("Load employees:", error.message);
-    res.status(500).json({
+
+    return res.status(500).json({
       message: "Unable to load employees.",
     });
   }
 });
 
-// ADD EMPLOYEE — admin only
+// ADD employee — admin only.
 router.post("/employees", requireCreator, async (req, res) => {
   const name = String(req.body?.name || "").trim();
 
@@ -144,7 +156,7 @@ router.post("/employees", requireCreator, async (req, res) => {
       [name]
     );
 
-    res.status(201).json(result.rows[0]);
+    return res.status(201).json(result.rows[0]);
   } catch (error) {
     if (error.code === "23505") {
       return res.status(409).json({
@@ -153,8 +165,123 @@ router.post("/employees", requireCreator, async (req, res) => {
     }
 
     console.error("Create employee:", error.message);
-    res.status(500).json({
+
+    return res.status(500).json({
       message: "Unable to add employee.",
+    });
+  }
+});
+
+// ======================================================
+// USER ACCOUNT MANAGEMENT
+// ======================================================
+
+// GET all user accounts — admin only.
+// Never return password_hash.
+router.get("/users", requireCreator, async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT id, name, email, role, created_at
+      FROM users
+      ORDER BY created_at DESC NULLS LAST, id DESC
+    `);
+
+    return res.json(result.rows);
+  } catch (error) {
+    console.error("Load user accounts:", error.message);
+
+    return res.status(500).json({
+      message: "Unable to load user accounts.",
+    });
+  }
+});
+
+// CREATE account — admin only.
+// Passwords are hashed before being stored in PostgreSQL.
+router.post("/users", requireCreator, async (req, res) => {
+  const name = String(req.body?.name || "").trim();
+  const email = String(req.body?.email || "")
+    .trim()
+    .toLowerCase();
+  const password =
+    typeof req.body?.password === "string"
+      ? req.body.password
+      : "";
+  const role = String(req.body?.role || "user")
+    .trim()
+    .toLowerCase();
+
+  if (!name || name.length > 100) {
+    return res.status(400).json({
+      message: "Enter a valid name (maximum 100 characters).",
+    });
+  }
+
+  if (
+    !email ||
+    email.length > 255 ||
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+  ) {
+    return res.status(400).json({
+      message: "Enter a valid email address.",
+    });
+  }
+
+  if (password.length < 8 || password.length > 72) {
+    return res.status(400).json({
+      message: "Password must contain between 8 and 72 characters.",
+    });
+  }
+
+  if (!["user", "admin"].includes(role)) {
+    return res.status(400).json({
+      message: "Role must be either user or admin.",
+    });
+  }
+
+  if (!process.env.JWT_SECRET) {
+    return res.status(500).json({
+      message: "Authentication is not configured on the server.",
+    });
+  }
+
+  try {
+    // Check whether the email is already registered.
+    const existingUser = await db.query(
+      "SELECT id FROM users WHERE LOWER(email) = $1 LIMIT 1",
+      [email]
+    );
+
+    if (existingUser.rows.length > 0) {
+      return res.status(409).json({
+        message: "An account with this email already exists.",
+      });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 12);
+
+    const result = await db.query(
+      `INSERT INTO users (name, email, password_hash, role)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, name, email, role, created_at`,
+      [name, email, passwordHash, role]
+    );
+
+    return res.status(201).json({
+      message: "User account created successfully.",
+      user: result.rows[0],
+    });
+  } catch (error) {
+    if (error.code === "23505") {
+      return res.status(409).json({
+        message: "An account with this email already exists.",
+      });
+    }
+
+    console.error("Create user account:", error.message);
+
+    return res.status(500).json({
+      message: "Unable to create user account.",
     });
   }
 });
