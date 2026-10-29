@@ -154,13 +154,27 @@ export default function CreatorDashboard() {
   }, [showToast]);
 
   const selectAccessRequest = (request) => {
-    const requestedRole = String(request.requested_role ?? request.requestedRole ?? "user").toLowerCase();
+    const requestedRole = String(
+      request.requested_role ?? request.requestedRole ?? "user"
+    ).toLowerCase();
+
+    if (request.id == null) {
+      showToast("error", "This request has no ID. Refresh the requests and try again.");
+      return;
+    }
+
     setUserName(String(request.name ?? ""));
     setUserEmail(String(request.email ?? "").toLowerCase());
-    setUserRole(["user", "admin"].includes(requestedRole) ? requestedRole : "user");
+    setUserRole(
+      ["user", "admin"].includes(requestedRole) ? requestedRole : "user"
+    );
     setUserPassword("");
-    setSelectedRequestId(request.id ?? request.email);
-    showToast("success", "Request selected. Name, email, and role have been filled in.");
+    setSelectedRequestId(request.id);
+
+    showToast(
+      "success",
+      "Request selected. Name, email, and role have been filled in."
+    );
   };
 
   useEffect(() => {
@@ -308,12 +322,17 @@ export default function CreatorDashboard() {
     const cleanEmail = userEmail.trim().toLowerCase();
     const cleanPassword = userPassword;
 
-    if (!cleanName || !cleanEmail || !cleanPassword) {
-      showToast("error", "Please complete all required account fields.");
+    if (!cleanName || !cleanEmail) {
+      showToast("error", "Please complete the name and email fields.");
       return;
     }
 
-    if (cleanPassword.length < 8 || cleanPassword.length > 72) {
+    if (!selectedRequestId && !cleanPassword) {
+      showToast("error", "Enter a password for a manually created account.");
+      return;
+    }
+
+    if (!selectedRequestId && (cleanPassword.length < 8 || cleanPassword.length > 72)) {
       showToast("error", "Password must contain 8 to 72 characters.");
       return;
     }
@@ -327,12 +346,22 @@ export default function CreatorDashboard() {
     setLoading(true);
 
     try {
-      await API.post("/creator/users", {
-        name: cleanName,
-        email: cleanEmail,
-        password: cleanPassword,
-        role: userRole,
-      });
+      if (selectedRequestId) {
+        // The backend must use the password hash stored with this pending request.
+        // Never retrieve or send the original password/hash to the browser.
+        await API.post(
+          `/creator/access-requests/${encodeURIComponent(selectedRequestId)}/create-account`,
+          { role: userRole }
+        );
+      } else {
+        // Manual account creation remains available when no request is selected.
+        await API.post("/creator/users", {
+          name: cleanName,
+          email: cleanEmail,
+          password: cleanPassword,
+          role: userRole,
+        });
+      }
 
       setUserName("");
       setUserEmail("");
@@ -1624,26 +1653,36 @@ export default function CreatorDashboard() {
                     />
                   </div>
 
-                  <div className="creator-field">
-                    <label className="creator-label" htmlFor="creator-user-password">
-                      Password <span aria-hidden="true">*</span>
-                    </label>
-                    <input
-                      id="creator-user-password"
-                      required
-                      type="password"
-                      minLength={8}
-                      maxLength={72}
-                      autoComplete="new-password"
-                      className="creator-input"
-                      value={userPassword}
-                      onChange={(event) => setUserPassword(event.target.value)}
-                      placeholder="Enter a password (8–72 characters)"
-                    />
-                    <div className="creator-help">
-                      Passwords are hashed on the server before they are stored.
+                  {!selectedRequestId ? (
+                    <div className="creator-field">
+                      <label className="creator-label" htmlFor="creator-user-password">
+                        Password <span aria-hidden="true">*</span>
+                      </label>
+                      <input
+                        id="creator-user-password"
+                        required={!selectedRequestId}
+                        type="password"
+                        minLength={8}
+                        maxLength={72}
+                        autoComplete="new-password"
+                        className="creator-input"
+                        value={userPassword}
+                        onChange={(event) => setUserPassword(event.target.value)}
+                        placeholder="Enter a password (8–72 characters)"
+                      />
+                      <div className="creator-help">
+                        Passwords are hashed on the server before they are stored.
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="creator-description-box creator-description-general">
+                      <strong>Access request selected</strong>
+                      <p>
+                        The account will use the password hash securely stored
+                        with this request. The password is not displayed here.
+                      </p>
+                    </div>
+                  )}
 
                   <div className="creator-field">
                     <label className="creator-label" htmlFor="creator-user-role">
