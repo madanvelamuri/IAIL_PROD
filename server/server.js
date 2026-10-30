@@ -14,6 +14,7 @@ const mistakeRoutes = require("./routes/mistakeRoutes");
 const teamsRoutes = require("./routes/teamsRoutes");
 const creatorRoutes = require("./routes/creatorRoutes");
 const accessRequestRoutes = require("./routes/accessRequestRoutes");
+const settingsRoutes = require("./routes/settings");
 // ==========================================
 // CONTROLLERS
 // ==========================================
@@ -83,6 +84,7 @@ app.use("/api/teams", teamsRoutes);
 // One Creator router for mistake types, employees, and user accounts.
 app.use("/api/creator", creatorRoutes);
 app.use("/api/access-requests", accessRequestRoutes);
+app.use("/api/settings", settingsRoutes);
 // ==========================================
 // HEALTH CHECK
 // ==========================================
