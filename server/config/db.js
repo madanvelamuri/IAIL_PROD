@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS public.users (
   password TEXT NOT NULL,
   role VARCHAR(20) NOT NULL DEFAULT 'user'
     CHECK (role IN ('user', 'admin')),
+  mobile VARCHAR(20),
   created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 `;
@@ -67,12 +68,19 @@ async function initializeDatabase() {
   try {
     await client.query("BEGIN");
 
+    // Create users table if it does not exist
     await client.query(createUsersTable);
 
-    // Add columns for existing users tables without replacing data.
+    // Add missing columns without deleting existing records
     await client.query(`
       ALTER TABLE public.users
-      ADD COLUMN IF NOT EXISTS role VARCHAR(20) NOT NULL DEFAULT 'user'
+      ADD COLUMN IF NOT EXISTS role VARCHAR(20)
+      NOT NULL DEFAULT 'user'
+    `);
+
+    await client.query(`
+      ALTER TABLE public.users
+      ADD COLUMN IF NOT EXISTS mobile VARCHAR(20)
     `);
 
     await client.query(`
@@ -81,18 +89,23 @@ async function initializeDatabase() {
       NOT NULL DEFAULT CURRENT_TIMESTAMP
     `);
 
+    // Create mistakes table
     await client.query(createMistakesTable);
-
-    // Existing users remain users by default.
-    // Promote administrators explicitly after verifying their identities.
 
     await client.query("COMMIT");
 
     console.log("Database tables verified and ready.");
+
   } catch (error) {
     await client.query("ROLLBACK");
-    console.error("Database initialization failed:", error.message);
+
+    console.error(
+      "Database initialization failed:",
+      error.message
+    );
+
     throw error;
+
   } finally {
     client.release();
   }
@@ -103,23 +116,40 @@ async function initializeDatabase() {
 // ======================================================
 
 pool.on("error", (error) => {
-  console.error("Unexpected PostgreSQL pool error:", error.message);
+  console.error(
+    "Unexpected PostgreSQL pool error:",
+    error.message
+  );
 });
+
+// ======================================================
+// DATABASE STARTUP
+// ======================================================
 
 async function startDatabase() {
   try {
     await pool.query("SELECT 1");
-    console.log("Connected to PostgreSQL database successfully.");
+
+    console.log(
+      "Connected to PostgreSQL database successfully."
+    );
 
     await initializeDatabase();
+
   } catch (error) {
-    console.error("Database startup check failed:", error.message);
-    // Keep the process behavior controlled by the application entry point.
-    // The app should not serve requests until initialization has succeeded.
-    process.exitCode = 1;
+    console.error(
+      "Database startup check failed:",
+      error.message
+    );
+
+    throw error;
   }
 }
 
-startDatabase();
+// ======================================================
+// EXPORT
+// ======================================================
 
 module.exports = pool;
+module.exports.initializeDatabase = initializeDatabase;
+module.exports.startDatabase = startDatabase;
