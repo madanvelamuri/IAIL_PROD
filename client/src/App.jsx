@@ -18,10 +18,17 @@ import Register from "./pages/Register";
 import TeamsNotifications from "./pages/TeamsNotifications";
 import CreatorDashboard from "./pages/CreatorDashboard";
 
+// ==========================================
 // SETTINGS PAGES
-import UpdateProfile from "./pages/settings/UpdateProfile";
+// ==========================================
 
-// FEEDBACK PAGE
+import UpdateProfile from "./pages/settings/UpdateProfile";
+import Help from "./pages/settings/Help";
+
+// ==========================================
+// OTHER PAGES
+// ==========================================
+
 import Feedback from "./pages/Feedback";
 
 // ==========================================
@@ -92,7 +99,7 @@ function App() {
         />
 
         {/* ==================================
-            PROTECTED ROUTES
+            DASHBOARD
         ================================== */}
 
         <Route
@@ -104,6 +111,10 @@ function App() {
           }
         />
 
+        {/* ==================================
+            ADD MISTAKE
+        ================================== */}
+
         <Route
           path="/add-mistake"
           element={
@@ -112,6 +123,10 @@ function App() {
             </ProtectedRoute>
           }
         />
+
+        {/* ==================================
+            TEAMS NOTIFICATIONS
+        ================================== */}
 
         <Route
           path="/teams-notifications"
@@ -136,7 +151,7 @@ function App() {
         />
 
         {/* ==================================
-            SETTINGS
+            SETTINGS - UPDATE PROFILE
         ================================== */}
 
         <Route
@@ -144,6 +159,19 @@ function App() {
           element={
             <ProtectedRoute>
               <UpdateProfile />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* ==================================
+            SETTINGS - HELP
+        ================================== */}
+
+        <Route
+          path="/settings/help"
+          element={
+            <ProtectedRoute>
+              <Help />
             </ProtectedRoute>
           }
         />
