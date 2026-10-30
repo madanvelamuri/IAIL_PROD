@@ -7,34 +7,52 @@ const path = require("path");
 const cron = require("node-cron");
 
 // ==========================================
+// DATABASE
+// ==========================================
+
+const pool = require("./db");
+
+// ==========================================
 // ROUTES
 // ==========================================
+
 const authRoutes = require("./routes/authRoutes");
 const mistakeRoutes = require("./routes/mistakeRoutes");
 const teamsRoutes = require("./routes/teamsRoutes");
 const creatorRoutes = require("./routes/creatorRoutes");
 const accessRequestRoutes = require("./routes/accessRequestRoutes");
 const settingsRoutes = require("./routes/settings");
+
 // ==========================================
 // CONTROLLERS
 // ==========================================
+
 const {
   generateAndSendTeamsReport,
 } = require("./controllers/teamsController");
 
 // ==========================================
-// DATABASE MODEL
+// DATABASE MODELS
 // ==========================================
+
 const NotificationModel = require("./models/notificationModel");
 
 // ==========================================
 // EXPRESS APP
 // ==========================================
+
 const app = express();
 
 // ==========================================
-// MIDDLEWARE
+// PORT
 // ==========================================
+
+const PORT = process.env.PORT || 5000;
+
+// ==========================================
+// CORS CONFIGURATION
+// ==========================================
+
 const allowedOrigins = [
   process.env.CLIENT_URL,
   "http://localhost:3000",
@@ -44,10 +62,14 @@ const allowedOrigins = [
   .filter(Boolean)
   .map((origin) => origin.trim().replace(/\/+$/, ""));
 
+// ==========================================
+// MIDDLEWARE
+// ==========================================
+
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests without an Origin header, such as server-to-server calls.
+      // Allow server-to-server requests
       if (!origin) {
         return callback(null, true);
       }
@@ -58,6 +80,8 @@ app.use(
         return callback(null, true);
       }
 
+      console.error("[CORS] Blocked origin:", origin);
+
       return callback(new Error("Not allowed by CORS"));
     },
     credentials: true,
@@ -67,7 +91,7 @@ app.use(
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
-// Serve uploaded files if local storage is used.
+// Serve uploaded files
 app.use(
   "/uploads",
   express.static(path.join(__dirname, "uploads"))
@@ -81,13 +105,14 @@ app.use("/api/auth", authRoutes);
 app.use("/api/mistakes", mistakeRoutes);
 app.use("/api/teams", teamsRoutes);
 
-// One Creator router for mistake types, employees, and user accounts.
 app.use("/api/creator", creatorRoutes);
 app.use("/api/access-requests", accessRequestRoutes);
 app.use("/api/settings", settingsRoutes);
+
 // ==========================================
 // HEALTH CHECK
 // ==========================================
+
 app.get("/", (req, res) => {
   res.status(200).json({
     success: true,
@@ -100,6 +125,7 @@ app.get("/", (req, res) => {
 // CRON JOB
 // DAILY MS TEAMS REPORT AT 6:00 PM IST
 // ==========================================
+
 cron.schedule(
   "0 18 * * *",
   async () => {
@@ -112,9 +138,14 @@ cron.schedule(
         teamsGroup: "QC Team",
       });
 
-      console.log("[Cron Job] Daily report sent successfully.");
+      console.log(
+        "[Cron Job] Daily report sent successfully."
+      );
     } catch (error) {
-      console.error("[Cron Job Error]:", error.message);
+      console.error(
+        "[Cron Job Error]:",
+        error.message
+      );
     }
   },
   {
@@ -126,6 +157,7 @@ cron.schedule(
 // ==========================================
 // GLOBAL ERROR HANDLER
 // ==========================================
+
 app.use((err, req, res, next) => {
   console.error("[Global Error Handler]:", {
     message: err.message,
@@ -152,17 +184,30 @@ app.use((err, req, res, next) => {
 });
 
 // ==========================================
-// SERVER START & ASYNC INITIALIZATION
+// SERVER START & DATABASE INITIALIZATION
 // ==========================================
-const PORT = process.env.PORT || 5000;
 
 const startServer = async () => {
   try {
+    console.log("------------------------------------");
     console.log("[Server] Starting initialization...");
+    console.log("------------------------------------");
 
+    // 1. Initialize PostgreSQL
+    await pool.startDatabase();
+
+    console.log(
+      "[Database] PostgreSQL initialized successfully."
+    );
+
+    // 2. Initialize notification tables
     await NotificationModel.initTables();
-    console.log("[Database] Notification tables initialized.");
 
+    console.log(
+      "[Database] Notification tables initialized."
+    );
+
+    // 3. Synchronize dashboard data
     const syncResult =
       await NotificationModel.syncDashboardData();
 
@@ -172,19 +217,31 @@ const startServer = async () => {
       inserted: syncResult?.inserted || 0,
     });
 
+    // 4. Start Express server only after initialization
     app.listen(PORT, () => {
       console.log("------------------------------------");
       console.log("IAIL Backend Started Successfully");
       console.log(`Port: ${PORT}`);
+      console.log("------------------------------------");
+
       console.log("Authentication API: /api/auth");
       console.log("Mistake API: /api/mistakes");
       console.log("Teams API: /api/teams");
       console.log("Creator API: /api/creator");
+      console.log("Access Request API: /api/access-requests");
+      console.log("Settings API: /api/settings");
+
+      console.log("------------------------------------");
       console.log("Daily Teams Report: 6:00 PM IST");
       console.log("------------------------------------");
     });
+
   } catch (error) {
-    console.error("[Server Startup Error]:", error.message);
+    console.error(
+      "[Server Startup Error]:",
+      error.message
+    );
+
     process.exit(1);
   }
 };
@@ -192,6 +249,7 @@ const startServer = async () => {
 // ==========================================
 // PROCESS ERROR HANDLERS
 // ==========================================
+
 process.on("unhandledRejection", (reason) => {
   console.error("[Unhandled Rejection]:", reason);
 });
@@ -201,6 +259,14 @@ process.on("uncaughtException", (error) => {
   process.exit(1);
 });
 
+// ==========================================
+// START APPLICATION
+// ==========================================
+
 startServer();
+
+// ==========================================
+// EXPORT APP
+// ==========================================
 
 module.exports = app;
