@@ -10,7 +10,7 @@ const cron = require("node-cron");
 // DATABASE
 // ==========================================
 
-const pool = require("./db");
+const pool = require("./config/db");
 
 // ==========================================
 // ROUTES

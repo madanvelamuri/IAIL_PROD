@@ -1,6 +1,10 @@
 
 const { Pool } = require("pg");
 
+// ======================================================
+// ENVIRONMENT CONFIGURATION
+// ======================================================
+
 const isProduction = process.env.NODE_ENV === "production";
 const connectionString = process.env.DATABASE_URL;
 
@@ -68,10 +72,10 @@ async function initializeDatabase() {
   try {
     await client.query("BEGIN");
 
-    // Create users table if it does not exist
+    // Create users table
     await client.query(createUsersTable);
 
-    // Add missing columns without deleting existing records
+    // Add missing columns safely
     await client.query(`
       ALTER TABLE public.users
       ADD COLUMN IF NOT EXISTS role VARCHAR(20)
@@ -94,13 +98,13 @@ async function initializeDatabase() {
 
     await client.query("COMMIT");
 
-    console.log("Database tables verified and ready.");
+    console.log("[Database] Tables verified and ready.");
 
   } catch (error) {
     await client.query("ROLLBACK");
 
     console.error(
-      "Database initialization failed:",
+      "[Database] Initialization failed:",
       error.message
     );
 
@@ -117,7 +121,7 @@ async function initializeDatabase() {
 
 pool.on("error", (error) => {
   console.error(
-    "Unexpected PostgreSQL pool error:",
+    "[Database] Unexpected PostgreSQL pool error:",
     error.message
   );
 });
@@ -131,14 +135,18 @@ async function startDatabase() {
     await pool.query("SELECT 1");
 
     console.log(
-      "Connected to PostgreSQL database successfully."
+      "[Database] PostgreSQL connected successfully."
     );
 
     await initializeDatabase();
 
+    console.log(
+      "[Database] Initialization completed successfully."
+    );
+
   } catch (error) {
     console.error(
-      "Database startup check failed:",
+      "[Database] Startup failed:",
       error.message
     );
 
