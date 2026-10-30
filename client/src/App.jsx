@@ -13,6 +13,9 @@ import AddMistake from "./pages/AddMistake";
 import Register from "./pages/Register";
 import TeamsNotifications from "./pages/TeamsNotifications";
 import CreatorDashboard from "./pages/CreatorDashboard";
+
+import UpdateProfile from "./pages/settings/UpdateProfile";
+
 import ProLayout from "./components/ProLayout";
 
 // ==========================================
@@ -50,6 +53,7 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
+
         {/* PUBLIC ROUTES */}
 
         <Route
@@ -100,6 +104,7 @@ function App() {
         />
 
         {/* CREATOR DASHBOARD */}
+
         <Route
           path="/creator"
           element={
@@ -109,7 +114,19 @@ function App() {
           }
         />
 
+        {/* SETTINGS */}
+
+        <Route
+          path="/settings/profile"
+          element={
+            <ProtectedRoute>
+              <UpdateProfile />
+            </ProtectedRoute>
+          }
+        />
+
         {/* CATCH-ALL ROUTE */}
+
         <Route
           path="*"
           element={
@@ -123,6 +140,7 @@ function App() {
             />
           }
         />
+
       </Routes>
     </BrowserRouter>
   );

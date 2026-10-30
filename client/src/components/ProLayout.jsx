@@ -1,9 +1,19 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+import {
+  Settings,
+  ChevronDown,
+  ChevronRight,
+  UserRound,
+  LockKeyhole,
+  MessageSquareWarning,
+  CircleHelp,
+} from "lucide-react";
 
 export default function ProLayout({ children }) {
   const location = useLocation();
+  const [settingsOpen, setSettingsOpen] = useState(true);
 
   let user = null;
 
@@ -20,21 +30,32 @@ export default function ProLayout({ children }) {
   };
 
   const navigationItems = [
+    { label: "Dashboard", path: "/dashboard" },
+    { label: "Add Mistake", path: "/add-mistake" },
+    { label: "Teams Notifications", path: "/teams-notifications" },
+    { label: "Creator Dashboard", path: "/creator" },
+  ];
+
+  const settingsItems = [
     {
-      label: "Dashboard",
-      path: "/dashboard",
+      label: "Update Profile",
+      path: "/settings/profile",
+      icon: UserRound,
     },
     {
-      label: "Add Mistake",
-      path: "/add-mistake",
+      label: "Update Password",
+      path: "/settings/password",
+      icon: LockKeyhole,
     },
     {
-      label: "Teams Notifications",
-      path: "/teams-notifications",
+      label: "Feedback",
+      path: "/settings/feedback",
+      icon: MessageSquareWarning,
     },
     {
-      label: "Creator Dashboard",
-      path: "/creator",
+      label: "Help",
+      path: "/settings/help",
+      icon: CircleHelp,
     },
   ];
 
@@ -54,8 +75,10 @@ export default function ProLayout({ children }) {
 
   return (
     <div className="flex h-screen bg-gray-100">
+
       {/* SIDEBAR */}
       <aside className="w-64 bg-slate-900 text-white flex flex-col shrink-0">
+
         <div className="p-6 text-2xl font-bold border-b border-slate-700">
           IAIL
           <p className="text-xs text-gray-400 font-normal mt-1">
@@ -64,7 +87,8 @@ export default function ProLayout({ children }) {
         </div>
 
         {/* NAVIGATION */}
-        <nav className="flex-1 p-4 space-y-2">
+        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+
           {navigationItems.map((item) => (
             <Link
               key={item.path}
@@ -74,10 +98,69 @@ export default function ProLayout({ children }) {
               {item.label}
             </Link>
           ))}
+
+          {/* SETTINGS MENU */}
+          <div className="pt-2">
+
+            <button
+              type="button"
+              onClick={() => setSettingsOpen(!settingsOpen)}
+              className="w-full flex items-center justify-between px-4 py-3 rounded-lg
+                border border-blue-400/30 bg-blue-700/40
+                text-blue-300 hover:bg-blue-600/50 transition"
+            >
+              <span className="flex items-center gap-3">
+                <Settings size={19} />
+                Settings
+              </span>
+
+              <ChevronDown
+                size={17}
+                className={`transition-transform duration-200 ${
+                  settingsOpen ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+
+            {settingsOpen && (
+              <div className="mt-2 ml-3 space-y-1">
+
+                {settingsItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = location.pathname === item.path;
+
+                  return (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      className={`flex items-center gap-3 px-3 py-2.5
+                        rounded-lg text-sm transition
+                        ${
+                          isActive
+                            ? "bg-sky-500 text-white font-semibold"
+                            : "text-blue-100 hover:bg-sky-500"
+                        }`}
+                    >
+                      <span className="text-blue-300">·</span>
+                      <Icon size={15} />
+                      <span>{item.label}</span>
+
+                      {item.label === "Help" && (
+                        <ChevronRight size={16} className="ml-auto" />
+                      )}
+                    </Link>
+                  );
+                })}
+
+              </div>
+            )}
+
+          </div>
         </nav>
 
         {/* USER AND LOGOUT */}
         <div className="p-4 border-t border-slate-700">
+
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 bg-slate-700 rounded-full flex items-center justify-center font-bold">
               {initial}
@@ -105,6 +188,7 @@ export default function ProLayout({ children }) {
 
       {/* MAIN CONTENT */}
       <div className="flex-1 min-w-0 flex flex-col">
+
         <header className="bg-white shadow-sm px-8 py-4 flex justify-between items-center">
           <h1 className="text-xl font-semibold text-gray-700">
             Mistake Tracking System
@@ -124,6 +208,7 @@ export default function ProLayout({ children }) {
         <main className="flex-1 p-8 overflow-auto">
           {children}
         </main>
+
       </div>
     </div>
   );
