@@ -9,7 +9,7 @@ import {
   CircleUserRound,
 } from "lucide-react";
 
-import API from "../../api/API";
+import API from "../../services/api";
 
 export default function UpdateProfile() {
   const [form, setForm] = useState({
@@ -23,16 +23,16 @@ export default function UpdateProfile() {
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("");
 
-  // Load existing user details
-  useEffect(() => {
-    loadProfile();
-  }, []);
+  // ==========================================
+  // LOAD PROFILE
+  // ==========================================
 
   const loadProfile = async () => {
     setLoading(true);
     setMessage("");
+    setMessageType("");
 
-    // Load cached details first
+    // Load cached user information
     try {
       const cachedUser = JSON.parse(
         localStorage.getItem("user") || "{}"
@@ -48,7 +48,7 @@ export default function UpdateProfile() {
     }
 
     try {
-      // Fetch latest profile from backend
+      // Get latest profile from backend
       const response = await API.get("/settings/profile");
 
       const user = response.data.user || response.data;
@@ -59,7 +59,7 @@ export default function UpdateProfile() {
         mobile: user.mobile || "",
       });
 
-      // Update cached user details
+      // Update local storage
       const oldUser = JSON.parse(
         localStorage.getItem("user") || "{}"
       );
@@ -91,7 +91,14 @@ export default function UpdateProfile() {
     }
   };
 
-  // Handle input changes
+  useEffect(() => {
+    loadProfile();
+  }, []);
+
+  // ==========================================
+  // HANDLE INPUT CHANGES
+  // ==========================================
+
   const handleChange = (e) => {
     const { name, value } = e.target;
 
@@ -101,7 +108,10 @@ export default function UpdateProfile() {
     }));
   };
 
-  // Update profile
+  // ==========================================
+  // UPDATE PROFILE
+  // ==========================================
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -145,7 +155,7 @@ export default function UpdateProfile() {
 
       const updatedUser = response.data.user || response.data;
 
-      // Update form with backend response
+      // Update form
       setForm({
         name: updatedUser.name || payload.name,
         email: updatedUser.email || payload.email,
@@ -170,6 +180,7 @@ export default function UpdateProfile() {
 
       setMessage("Profile updated successfully.");
       setMessageType("success");
+
     } catch (error) {
       console.error("Profile update failed:", error);
 
@@ -179,15 +190,23 @@ export default function UpdateProfile() {
       );
 
       setMessageType("error");
+
     } finally {
       setSaving(false);
     }
   };
 
-  // Reset form to saved profile
+  // ==========================================
+  // RESET FORM
+  // ==========================================
+
   const handleReset = () => {
     loadProfile();
   };
+
+  // ==========================================
+  // LOADING SCREEN
+  // ==========================================
 
   if (loading) {
     return (
@@ -199,17 +218,27 @@ export default function UpdateProfile() {
     );
   }
 
+  // ==========================================
+  // INPUT STYLES
+  // ==========================================
+
   const inputClass =
     "w-full border border-gray-300 rounded-lg px-4 py-3 pl-11 " +
     "outline-none transition focus:ring-2 focus:ring-indigo-500 " +
     "focus:border-indigo-500";
 
+  // ==========================================
+  // MAIN UI
+  // ==========================================
+
   return (
     <div className="max-w-4xl mx-auto">
 
       {/* PAGE HEADER */}
+
       <div className="mb-6">
         <div className="flex items-center gap-3">
+
           <div className="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center">
             <CircleUserRound size={26} />
           </div>
@@ -223,14 +252,18 @@ export default function UpdateProfile() {
               Manage your personal account information.
             </p>
           </div>
+
         </div>
       </div>
 
       {/* PROFILE CARD */}
+
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
 
         {/* CARD HEADER */}
+
         <div className="px-6 py-5 border-b border-gray-200">
+
           <h3 className="text-lg font-semibold text-gray-800">
             Personal Information
           </h3>
@@ -238,21 +271,25 @@ export default function UpdateProfile() {
           <p className="text-sm text-gray-500 mt-1">
             Update your name, email address and mobile number.
           </p>
+
         </div>
 
         {/* FORM */}
+
         <form
           onSubmit={handleSubmit}
           className="p-6 space-y-6"
         >
 
-          {/* NAME */}
+          {/* FULL NAME */}
+
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">
               Full Name
             </label>
 
             <div className="relative">
+
               <UserRound
                 size={18}
                 className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
@@ -268,16 +305,19 @@ export default function UpdateProfile() {
                 maxLength={100}
                 className={inputClass}
               />
+
             </div>
           </div>
 
-          {/* EMAIL */}
+          {/* EMAIL ADDRESS */}
+
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">
               Email Address
             </label>
 
             <div className="relative">
+
               <Mail
                 size={18}
                 className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
@@ -293,16 +333,19 @@ export default function UpdateProfile() {
                 maxLength={255}
                 className={inputClass}
               />
+
             </div>
           </div>
 
-          {/* MOBILE */}
+          {/* MOBILE NUMBER */}
+
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">
               Mobile Number
             </label>
 
             <div className="relative">
+
               <Phone
                 size={18}
                 className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
@@ -317,10 +360,12 @@ export default function UpdateProfile() {
                 maxLength={20}
                 className={inputClass}
               />
+
             </div>
           </div>
 
-          {/* MESSAGE */}
+          {/* SUCCESS / ERROR MESSAGE */}
+
           {message && (
             <div
               className={`p-3 rounded-lg text-sm font-medium ${
@@ -333,7 +378,8 @@ export default function UpdateProfile() {
             </div>
           )}
 
-          {/* BUTTONS */}
+          {/* ACTION BUTTONS */}
+
           <div className="flex flex-wrap justify-end gap-3 pt-4 border-t border-gray-200">
 
             <button
@@ -352,11 +398,14 @@ export default function UpdateProfile() {
               className="flex items-center gap-2 px-6 py-3 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition disabled:opacity-50"
             >
               <Save size={17} />
+
               {saving ? "Saving..." : "Save Changes"}
             </button>
 
           </div>
+
         </form>
+
       </div>
     </div>
   );

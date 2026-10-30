@@ -1,23 +1,32 @@
+
 import axios from "axios";
 
-// Configure the backend URL.
-// VITE_API_URL can contain the backend URL with or without /api.
+// ==========================================
+// BACKEND URL CONFIGURATION
+// ==========================================
+
 const rawBaseURL = import.meta.env.VITE_API_URL?.trim();
 
 const backendURL =
   rawBaseURL ||
   (import.meta.env.DEV ? "http://localhost:5000" : "");
 
+// Remove trailing slash and optional /api suffix
 const cleanBaseURL = backendURL
   .replace(/\/+$/, "")
   .replace(/\/api$/i, "");
 
+// Create Axios instance
 const API = axios.create({
   baseURL: cleanBaseURL ? `${cleanBaseURL}/api` : "/api",
   timeout: 30000,
 });
 
-// Attach JWT token to every authenticated request.
+// ==========================================
+// REQUEST INTERCEPTOR
+// Attach JWT token to authenticated requests
+// ==========================================
+
 API.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("token");
@@ -35,7 +44,11 @@ API.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Handle API errors.
+// ==========================================
+// RESPONSE INTERCEPTOR
+// Handle API errors
+// ==========================================
+
 API.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -53,7 +66,7 @@ API.interceptors.response.use(
       localStorage.removeItem("token");
       localStorage.removeItem("user");
 
-      // Prevent repeated redirects.
+      // Prevent repeated redirects
       if (window.location.pathname !== "/") {
         window.location.href = "/";
       }
