@@ -168,9 +168,7 @@ export default function ProLayout({ children }) {
               type="button"
               onClick={() => setSettingsOpen(!settingsOpen)}
               aria-expanded={settingsOpen}
-              className="w-full flex items-center justify-between px-4 py-3 rounded-lg
-                border border-blue-400/30 bg-blue-700/40
-                text-blue-300 hover:bg-blue-600/50 transition"
+              className="w-full flex items-center justify-between px-4 py-3 rounded-lg transition text-gray-200 hover:bg-slate-700"
             >
 
               <span className="flex items-center gap-3">
