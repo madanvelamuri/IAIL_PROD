@@ -22,7 +22,7 @@ const teamsRoutes = require("./routes/teamsRoutes");
 const creatorRoutes = require("./routes/creatorRoutes");
 const accessRequestRoutes = require("./routes/accessRequestRoutes");
 const settingsRoutes = require("./routes/settings");
-
+const feedbackRoutes = require("./routes/feedbackRoutes");
 // ==========================================
 // CONTROLLERS
 // ==========================================
@@ -108,7 +108,7 @@ app.use("/api/teams", teamsRoutes);
 app.use("/api/creator", creatorRoutes);
 app.use("/api/access-requests", accessRequestRoutes);
 app.use("/api/settings", settingsRoutes);
-
+app.use("/api/feedback", feedbackRoutes);
 // ==========================================
 // HEALTH CHECK
 // ==========================================

@@ -1,6 +1,7 @@
 
 import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+
 import {
   Settings,
   ChevronDown,
@@ -13,28 +14,64 @@ import {
 
 export default function ProLayout({ children }) {
   const location = useLocation();
-  const [settingsOpen, setSettingsOpen] = useState(true);
+
+  const [settingsOpen, setSettingsOpen] = useState(
+    location.pathname.startsWith("/settings") ||
+    location.pathname === "/feedback"
+  );
+
+  // ==========================================
+  // USER DETAILS
+  // ==========================================
 
   let user = null;
 
   try {
-    user = JSON.parse(localStorage.getItem("user"));
+    user = JSON.parse(localStorage.getItem("user") || "null");
   } catch {
     user = null;
   }
 
+  const displayName = user?.name || "User";
+  const initial = displayName.charAt(0).toUpperCase();
+
+  // ==========================================
+  // LOGOUT
+  // ==========================================
+
   const logout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
+
     window.location.href = "/";
   };
 
+  // ==========================================
+  // MAIN NAVIGATION
+  // ==========================================
+
   const navigationItems = [
-    { label: "Dashboard", path: "/dashboard" },
-    { label: "Add Mistake", path: "/add-mistake" },
-    { label: "Teams Notifications", path: "/teams-notifications" },
-    { label: "Creator Dashboard", path: "/creator" },
+    {
+      label: "Dashboard",
+      path: "/dashboard",
+    },
+    {
+      label: "Add Mistake",
+      path: "/add-mistake",
+    },
+    {
+      label: "Teams Notifications",
+      path: "/teams-notifications",
+    },
+    {
+      label: "Creator Dashboard",
+      path: "/creator",
+    },
   ];
+
+  // ==========================================
+  // SETTINGS NAVIGATION
+  // ==========================================
 
   const settingsItems = [
     {
@@ -49,7 +86,7 @@ export default function ProLayout({ children }) {
     },
     {
       label: "Feedback",
-      path: "/settings/feedback",
+      path: "/feedback",
       icon: MessageSquareWarning,
     },
     {
@@ -58,6 +95,10 @@ export default function ProLayout({ children }) {
       icon: CircleHelp,
     },
   ];
+
+  // ==========================================
+  // NAVIGATION ACTIVE CLASS
+  // ==========================================
 
   const linkClass = (path) => {
     const isActive = location.pathname === path;
@@ -70,24 +111,42 @@ export default function ProLayout({ children }) {
     ].join(" ");
   };
 
-  const displayName = user?.name || "User";
-  const initial = displayName.charAt(0).toUpperCase();
+  // ==========================================
+  // SETTINGS ACTIVE STATE
+  // ==========================================
+
+  const isSettingsActive = (path) => {
+    return location.pathname === path;
+  };
+
+  // ==========================================
+  // UI
+  // ==========================================
 
   return (
     <div className="flex h-screen bg-gray-100">
 
-      {/* SIDEBAR */}
+      {/* ==================================
+          SIDEBAR
+      ================================== */}
+
       <aside className="w-64 bg-slate-900 text-white flex flex-col shrink-0">
+
+        {/* LOGO */}
 
         <div className="p-6 text-2xl font-bold border-b border-slate-700">
           IAIL
+
           <p className="text-xs text-gray-400 font-normal mt-1">
             Mistake Tracking System
           </p>
         </div>
 
         {/* NAVIGATION */}
+
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+
+          {/* MAIN NAVIGATION */}
 
           {navigationItems.map((item) => (
             <Link
@@ -99,16 +158,21 @@ export default function ProLayout({ children }) {
             </Link>
           ))}
 
-          {/* SETTINGS MENU */}
+          {/* ==================================
+              SETTINGS MENU
+          ================================== */}
+
           <div className="pt-2">
 
             <button
               type="button"
               onClick={() => setSettingsOpen(!settingsOpen)}
+              aria-expanded={settingsOpen}
               className="w-full flex items-center justify-between px-4 py-3 rounded-lg
                 border border-blue-400/30 bg-blue-700/40
                 text-blue-300 hover:bg-blue-600/50 transition"
             >
+
               <span className="flex items-center gap-3">
                 <Settings size={19} />
                 Settings
@@ -120,14 +184,18 @@ export default function ProLayout({ children }) {
                   settingsOpen ? "rotate-180" : ""
                 }`}
               />
+
             </button>
+
+            {/* SETTINGS ITEMS */}
 
             {settingsOpen && (
               <div className="mt-2 ml-3 space-y-1">
 
                 {settingsItems.map((item) => {
                   const Icon = item.icon;
-                  const isActive = location.pathname === item.path;
+
+                  const isActive = isSettingsActive(item.path);
 
                   return (
                     <Link
@@ -141,13 +209,24 @@ export default function ProLayout({ children }) {
                             : "text-blue-100 hover:bg-sky-500"
                         }`}
                     >
-                      <span className="text-blue-300">·</span>
+
+                      <span className="text-blue-300">
+                        ·
+                      </span>
+
                       <Icon size={15} />
-                      <span>{item.label}</span>
+
+                      <span>
+                        {item.label}
+                      </span>
 
                       {item.label === "Help" && (
-                        <ChevronRight size={16} className="ml-auto" />
+                        <ChevronRight
+                          size={16}
+                          className="ml-auto"
+                        />
                       )}
+
                     </Link>
                   );
                 })}
@@ -156,24 +235,33 @@ export default function ProLayout({ children }) {
             )}
 
           </div>
+
         </nav>
 
-        {/* USER AND LOGOUT */}
+        {/* ==================================
+            USER AND LOGOUT
+        ================================== */}
+
         <div className="p-4 border-t border-slate-700">
 
           <div className="flex items-center gap-3 mb-4">
+
             <div className="w-10 h-10 bg-slate-700 rounded-full flex items-center justify-center font-bold">
               {initial}
             </div>
 
             <div className="min-w-0">
+
               <p className="font-medium truncate">
                 {displayName}
               </p>
+
               <p className="text-xs text-gray-400">
                 Logged in
               </p>
+
             </div>
+
           </div>
 
           <button
@@ -183,18 +271,27 @@ export default function ProLayout({ children }) {
           >
             Logout
           </button>
+
         </div>
+
       </aside>
 
-      {/* MAIN CONTENT */}
+      {/* ==================================
+          MAIN CONTENT
+      ================================== */}
+
       <div className="flex-1 min-w-0 flex flex-col">
 
+        {/* HEADER */}
+
         <header className="bg-white shadow-sm px-8 py-4 flex justify-between items-center">
+
           <h1 className="text-xl font-semibold text-gray-700">
             Mistake Tracking System
           </h1>
 
           <div className="flex items-center gap-3">
+
             <span className="text-gray-600 font-medium">
               {displayName}
             </span>
@@ -202,14 +299,19 @@ export default function ProLayout({ children }) {
             <div className="w-10 h-10 bg-slate-900 text-white rounded-full flex items-center justify-center font-bold">
               {initial}
             </div>
+
           </div>
+
         </header>
+
+        {/* PAGE CONTENT */}
 
         <main className="flex-1 p-8 overflow-auto">
           {children}
         </main>
 
       </div>
+
     </div>
   );
 }

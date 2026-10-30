@@ -7,6 +7,10 @@ import {
   Navigate,
 } from "react-router-dom";
 
+// ==========================================
+// PAGES
+// ==========================================
+
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import AddMistake from "./pages/AddMistake";
@@ -14,7 +18,15 @@ import Register from "./pages/Register";
 import TeamsNotifications from "./pages/TeamsNotifications";
 import CreatorDashboard from "./pages/CreatorDashboard";
 
+// SETTINGS PAGES
 import UpdateProfile from "./pages/settings/UpdateProfile";
+
+// FEEDBACK PAGE
+import Feedback from "./pages/Feedback";
+
+// ==========================================
+// COMPONENTS
+// ==========================================
 
 import ProLayout from "./components/ProLayout";
 
@@ -22,6 +34,7 @@ import ProLayout from "./components/ProLayout";
 // PROTECTED ROUTES
 // Requires an active login token
 // ==========================================
+
 const ProtectedRoute = ({ children }) => {
   const token = localStorage.getItem("token");
 
@@ -36,6 +49,7 @@ const ProtectedRoute = ({ children }) => {
 // PUBLIC ROUTES
 // Redirect logged-in users to Dashboard
 // ==========================================
+
 const PublicRoute = ({ children }) => {
   const token = localStorage.getItem("token");
 
@@ -49,12 +63,15 @@ const PublicRoute = ({ children }) => {
 // ==========================================
 // APPLICATION ROUTES
 // ==========================================
+
 function App() {
   return (
     <BrowserRouter>
       <Routes>
 
-        {/* PUBLIC ROUTES */}
+        {/* ==================================
+            PUBLIC ROUTES
+        ================================== */}
 
         <Route
           path="/"
@@ -74,7 +91,9 @@ function App() {
           }
         />
 
-        {/* PROTECTED ROUTES */}
+        {/* ==================================
+            PROTECTED ROUTES
+        ================================== */}
 
         <Route
           path="/dashboard"
@@ -103,7 +122,9 @@ function App() {
           }
         />
 
-        {/* CREATOR DASHBOARD */}
+        {/* ==================================
+            CREATOR DASHBOARD
+        ================================== */}
 
         <Route
           path="/creator"
@@ -114,7 +135,9 @@ function App() {
           }
         />
 
-        {/* SETTINGS */}
+        {/* ==================================
+            SETTINGS
+        ================================== */}
 
         <Route
           path="/settings/profile"
@@ -125,7 +148,22 @@ function App() {
           }
         />
 
-        {/* CATCH-ALL ROUTE */}
+        {/* ==================================
+            FEEDBACK
+        ================================== */}
+
+        <Route
+          path="/feedback"
+          element={
+            <ProtectedRoute>
+              <Feedback />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* ==================================
+            CATCH-ALL ROUTE
+        ================================== */}
 
         <Route
           path="*"
